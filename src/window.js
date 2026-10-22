@@ -4,6 +4,7 @@ const path = require('path');
 const { BaseWindow, WebContentsView, Menu, clipboard, nativeTheme, shell, screen } = require('electron');
 const { resolveInput, displayUrl } = require('./url-utils');
 const { hostOf } = require('./shields');
+const { popupMenu } = require('./menu-popup');
 
 const IS_MAC = process.platform === 'darwin';
 const NEW_TAB = 'brisk://newtab';
@@ -467,12 +468,7 @@ class BrowserWin {
   }
 
   _popup(template, anchor) {
-    const opts = { window: this.win };
-    if (anchor && typeof anchor.x === 'number') {
-      opts.x = Math.round(anchor.x);
-      opts.y = Math.round(anchor.y);
-    }
-    Menu.buildFromTemplate(template).popup(opts);
+    popupMenu(template, this.win, anchor);
   }
 
   _bookmarkMenuItems(nodes, depth = 0) {
@@ -634,7 +630,7 @@ class BrowserWin {
     ]).popup({ window: this.win });
   }
 
-  showShieldsMenu() {
+  showShieldsMenu(anchor) {
     const t = this.active;
     if (!t) return;
     const host = hostOf(t.url);
@@ -643,7 +639,7 @@ class BrowserWin {
     const web = /^https?:/.test(t.url);
     const off = store.shieldsOffFor(host);
     const count = shields.countFor(t.wc.id);
-    Menu.buildFromTemplate([
+    this._popup([
       { label: web ? host : 'Brisk Shields', enabled: false },
       {
         label: !store.get('adblock')
@@ -663,11 +659,11 @@ class BrowserWin {
         },
       },
       { label: 'Shields Settings…', click: () => this.createTab('brisk://settings') },
-    ]).popup({ window: this.win });
+    ], anchor);
   }
 
-  showMainMenu() {
-    this.app.mainMenu(this).popup({ window: this.win });
+  showMainMenu(anchor) {
+    this._popup(this.app.mainMenu(this), anchor);
   }
 
   _editMenu(wc, params) {

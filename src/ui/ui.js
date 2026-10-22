@@ -268,6 +268,12 @@ function bookmarkEl(b) {
 }
 
 // Where a dropdown should appear: just under the element.
+// For buttons at the right edge: the menu's right side lines up with the button's.
+function anchorRight(el) {
+  const r = el.getBoundingClientRect();
+  return { x: r.right, y: r.bottom + 2, alignRight: true };
+}
+
 function anchorOf(el) {
   const r = el.getBoundingClientRect();
   return { x: r.left, y: r.bottom + 2 };
@@ -469,12 +475,12 @@ $('#forward').addEventListener('click', () => brisk.forward());
 $('#reload').addEventListener('click', (e) => (activeTab()?.loading ? brisk.stop() : brisk.reload(e.shiftKey)));
 $('#new-tab').addEventListener('click', () => brisk.newTab());
 $('#star').addEventListener('click', () => brisk.toggleBookmark(anchorOf($('#star'))));
-$('#profile').addEventListener('click', () => brisk.profileMenu(anchorOf($('#profile'))));
-$('#shields').addEventListener('click', () => brisk.shieldsMenu());
-$('#menu').addEventListener('click', () => brisk.mainMenu());
+$('#profile').addEventListener('click', () => brisk.profileMenu(anchorRight($('#profile'))));
+$('#shields').addEventListener('click', () => brisk.shieldsMenu(anchorRight($('#shields'))));
+$('#menu').addEventListener('click', () => brisk.mainMenu(anchorRight($('#menu'))));
 $('#downloads').addEventListener('click', () => {
   $('#downloads').classList.remove('active');
-  brisk.downloadsMenu();
+  brisk.downloadsMenu(anchorRight($('#downloads')));
 });
 
 // ---------- find in page ----------

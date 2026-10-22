@@ -31,6 +31,7 @@ const { Shields } = require('./shields');
 const { ProfileManager, COLORS } = require('./profiles');
 const { BrowserWin, NEW_TAB } = require('./window');
 const { Updater } = require('./updater');
+const { popupMenu } = require('./menu-popup');
 
 const IS_MAC = process.platform === 'darwin';
 const PAGES_DIR = path.join(__dirname, 'pages');
@@ -365,9 +366,7 @@ class BriskApp {
       },
       { label: 'Manage Profiles', click: () => w.createTab('brisk://profiles') },
     ];
-    const opts = { window: w.win };
-    if (anchor && typeof anchor.x === 'number') Object.assign(opts, { x: Math.round(anchor.x), y: Math.round(anchor.y) });
-    Menu.buildFromTemplate(template).popup(opts);
+    popupMenu(template, w.win, anchor);
   }
 
   // ---- downloads ----
@@ -402,7 +401,7 @@ class BriskApp {
     push();
   }
 
-  showDownloadsMenu(w) {
+  showDownloadsMenu(w, anchor) {
     const items = this.downloads.length
       ? this.downloads.map((d) => ({
           label: `${d.name}${d.state === 'progressing' ? ` — ${d.total ? Math.round((d.received / d.total) * 100) + '%' : 'downloading'}` : d.state === 'completed' ? '' : ` — ${d.state}`}`,
@@ -421,13 +420,13 @@ class BriskApp {
         },
       }
     );
-    Menu.buildFromTemplate(items).popup({ window: w.win });
+    popupMenu(items, w.win, anchor);
   }
 
   // ---- menus ----
   mainMenu(w) {
     const syncState = w.profile.sync.publicState();
-    return Menu.buildFromTemplate([
+    return [
       { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: () => w.createTab() },
       { label: 'New Window', accelerator: 'CmdOrCtrl+N', click: () => this.newWindow({ profile: w.profile }) },
       { label: 'New Private Window', accelerator: 'CmdOrCtrl+Shift+N', click: () => this.newWindow({ isPrivate: true, profile: w.profile }) },
@@ -452,7 +451,7 @@ class BriskApp {
       },
       { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: () => w.createTab('brisk://settings') },
       ...(this.updater.menuItem() ? [{ type: 'separator' }, this.updater.menuItem()] : []),
-    ]);
+    ];
   }
 
   buildAppMenu() {
@@ -633,11 +632,11 @@ function registerIpc(brisk) {
   ui('suggest', (w, text) => (w.isPrivate ? w.profile.store.suggest(text).filter((s) => s.type === 'bookmark') : w.profile.store.suggest(text)));
   ui('find:query', (w, text, opts) => w.find(text, opts || {}));
   ui('find:stop', (w) => w.stopFind());
-  ui('menu:main', (w) => w.showMainMenu());
-  ui('menu:shields', (w) => w.showShieldsMenu());
+  ui('menu:main', (w, anchor) => w.showMainMenu(anchor));
+  ui('menu:shields', (w, anchor) => w.showShieldsMenu(anchor));
   ui('menu:tab', (w, id) => w.showTabMenu(id));
   ui('menu:bookmark', (w, id) => w.showBookmarkMenu(id));
-  ui('menu:downloads', (w) => brisk.showDownloadsMenu(w));
+  ui('menu:downloads', (w, anchor) => brisk.showDownloadsMenu(w, anchor));
 
   // From internal brisk:// pages only.
   const page = (channel, fn) =>

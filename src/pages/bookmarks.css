@@ -1,0 +1,204 @@
+.wrap.wide {
+  max-width: 1080px;
+}
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.toolbar #filter {
+  flex: 1;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* folder tree */
+.tree {
+  padding: 8px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+.tnode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding-right: 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13.5px;
+}
+.tnode:hover {
+  background: var(--accent-soft);
+}
+.tnode.current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.tnode.drop {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tnode .tw {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--muted);
+  border-radius: 4px;
+}
+.tnode .tw:hover {
+  background: var(--line);
+}
+.tnode .tlabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tnode svg,
+.bmrow svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tnode .ficon {
+  color: var(--accent);
+}
+
+/* list */
+.listcard {
+  padding: 4px 16px 8px;
+  min-height: 200px;
+}
+.crumbs {
+  padding: 14px 0 10px;
+  font-weight: 650;
+  font-size: 15px;
+  border-bottom: 1px solid var(--line);
+}
+.crumbs span.sep {
+  color: var(--muted);
+  margin: 0 6px;
+  font-weight: 400;
+}
+.crumbs a {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.crumbs a:hover {
+  color: var(--accent);
+}
+.bmrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+#list .bmrow:first-child {
+  border-top: 0;
+}
+.bmrow.adder {
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.bmrow.dragging {
+  opacity: 0.4;
+}
+.bmrow.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.bmrow .fav {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  flex: none;
+  background: var(--line);
+}
+.bmrow .ficon {
+  color: var(--accent);
+  width: 18px;
+  height: 18px;
+}
+.bmrow .info {
+  flex: 1;
+  min-width: 0;
+}
+.bmrow.is-folder .info {
+  cursor: pointer;
+}
+.bmrow .t,
+.bmrow .u {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bmrow .t {
+  font-weight: 500;
+}
+.bmrow .u {
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.bmrow .info input {
+  width: 100%;
+  margin: 2px 0;
+}
+.bmrow button,
+.bmrow select {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.bmrow select {
+  max-width: 170px;
+}
+.bmrow .rowacts {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+}
+.bmrow:hover .rowacts,
+.bmrow:focus-within .rowacts {
+  opacity: 1;
+}
+.bmrow .handle {
+  color: var(--muted);
+  cursor: grab;
+  font-size: 14px;
+  user-select: none;
+  width: 12px;
+  text-align: center;
+}
+.note {
+  font-size: 13px;
+  margin-top: 18px;
+}

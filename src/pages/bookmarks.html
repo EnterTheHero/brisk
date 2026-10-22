@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Bookmarks</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="pages.css" />
+    <link rel="stylesheet" href="bookmarks.css" />
+  </head>
+  <body>
+    <div class="wrap wide">
+      <div class="head">
+        <div>
+          <h1>Bookmarks</h1>
+          <p class="sub" id="count"></p>
+        </div>
+        <div class="actions">
+          <button id="import">Import…</button>
+          <button id="export">Export</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="filter" placeholder="Search all bookmarks" />
+        <button id="new-folder">New folder</button>
+        <button class="primary" id="new-bookmark">Add bookmark</button>
+        <input type="file" id="file" accept=".html,.htm" hidden />
+      </div>
+
+      <div class="layout">
+        <aside class="card tree" id="tree"></aside>
+        <main class="card listcard">
+          <div class="crumbs" id="crumbs"></div>
+          <div id="adder" hidden>
+            <div class="bmrow adder">
+              <div class="info">
+                <input type="text" id="new-title" placeholder="Name" />
+                <input type="text" id="new-url" placeholder="https://…" />
+              </div>
+              <button class="primary" id="add">Add</button>
+              <button id="add-cancel">Cancel</button>
+            </div>
+          </div>
+          <div id="list"></div>
+        </main>
+      </div>
+
+      <p class="muted note">
+        Drag bookmarks to reorder them or drop them on a folder at the left. To bring bookmarks from Brave or Chrome: open
+        <code>brave://bookmarks</code> (or <code>chrome://bookmarks</code>), ⋮ menu → <b>Export bookmarks</b>, then use <b>Import</b> here.
+        Importing again is safe: folders are matched up and nothing is duplicated.
+      </p>
+    </div>
+    <script src="theme.js"></script>
+    <script src="bookmarks.js"></script>
+  </body>
+</html>

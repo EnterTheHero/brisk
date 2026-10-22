@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: http: data: crx:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Brisk</title>
+    <link rel="stylesheet" href="../fonts/fonts.css" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body>
+    <div id="chrome">
+      <div id="tabstrip">
+        <div id="traffic-space"></div>
+        <div id="tabs" role="tablist"></div>
+        <button id="new-tab" class="icon-btn" title="New tab"></button>
+        <div id="drag-fill"></div>
+        <div id="private-badge" hidden>Private</div>
+      </div>
+
+      <div id="toolbar">
+        <button id="back" class="icon-btn" title="Back"></button>
+        <button id="forward" class="icon-btn" title="Forward"></button>
+        <button id="reload" class="icon-btn" title="Reload"></button>
+
+        <div id="omnibox">
+          <span id="site-icon"></span>
+          <input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="Search or enter address" />
+          <button id="star" class="icon-btn small" title="Bookmark this page"></button>
+          <div id="suggestions" hidden></div>
+        </div>
+
+        <button id="shields" class="icon-btn" title="Shields">
+          <span id="shields-count" hidden></span>
+        </button>
+        <button id="downloads" class="icon-btn" title="Downloads" hidden></button>
+        <button id="profile" class="icon-btn" title="Profile"><span class="avatar"></span></button>
+        <button id="menu" class="icon-btn" title="Menu"></button>
+      </div>
+
+      <div id="bookmarks" hidden></div>
+
+      <div id="findbar" hidden>
+        <input id="find-input" type="text" spellcheck="false" placeholder="Find in page" />
+        <span id="find-count"></span>
+        <button id="find-prev" class="icon-btn small" title="Previous"></button>
+        <button id="find-next" class="icon-btn small" title="Next"></button>
+        <button id="find-close" class="icon-btn small" title="Close"></button>
+      </div>
+    </div>
+    <div id="scrim" hidden></div>
+    <script src="ui.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'" />
+    <title>Extensions</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="pages.css" />
+    <link rel="stylesheet" href="extensions.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Extensions</h1>
+      <p class="sub">Install extensions from the Chrome Web Store with its normal <b>Add to Chrome</b> button. They update automatically.</p>
+
+      <div class="actions top-actions">
+        <button class="primary" id="store">Open Chrome Web Store</button>
+      </div>
+
+      <section class="card" id="list"></section>
+
+      <p class="muted note">
+        Extensions don’t run in private windows. Most popular extensions work (password managers, Dark Reader, Grammarly, uBlock Origin Lite).
+        A few that depend on Chrome-only features may not.
+      </p>
+    </div>
+    <script src="theme.js"></script>
+    <script src="extensions.js"></script>
+  </body>
+</html>

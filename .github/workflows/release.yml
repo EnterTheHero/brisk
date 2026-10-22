@@ -1,0 +1,71 @@
+# Builds Brisk for Windows and Mac and publishes a GitHub Release.
+# Runs when a version tag (like v0.5.0) is pushed, or by hand from the Actions tab.
+# Installed copies of Brisk check the latest release for updates.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build installer (Squirrel)
+        run: npx electron-builder --win --x64 --publish never
+      - name: Publish to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
+          gh release upload "v$VERSION" \
+            "release/squirrel-windows/Brisk-Setup-$VERSION.exe" \
+            "release/squirrel-windows/Brisk-$VERSION-full.nupkg" \
+            "release/squirrel-windows/RELEASES" --clobber
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build apps (Apple Silicon and Intel)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --mac dir --arm64 --x64 --publish never
+      - name: Sign (ad-hoc) and zip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for pair in "mac-arm64:AppleSilicon" "mac:Intel"; do
+            dir="${pair%%:*}"; label="${pair##*:}"
+            codesign --force --deep --sign - "release/$dir/Brisk.app"
+            codesign --verify --deep --strict "release/$dir/Brisk.app"
+            ditto -c -k --keepParent "release/$dir/Brisk.app" "release/Brisk-$VERSION-mac-$label.zip"
+          done
+      - name: Publish to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release create "v$VERSION" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
+          gh release upload "v$VERSION" release/Brisk-$VERSION-mac-*.zip --clobber

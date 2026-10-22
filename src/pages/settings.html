@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Settings</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="pages.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Settings</h1>
+      <p class="sub" id="subline">Settings, bookmarks and per-site shield choices sync to every computer you sign in on.</p>
+
+      <section class="card" id="sync">
+        <div class="card-head">
+          <h2>Sync <span class="pill" id="sync-pill">Off</span></h2>
+          <p id="sync-line">Keep bookmarks and settings the same on all your computers using your Google Drive.</p>
+        </div>
+
+        <div id="sync-setup" hidden>
+          <div class="stack">
+            <div><b>One-time setup</b> <span class="muted">(about 5 minutes, only needed on the first computer)</span></div>
+            <ol class="steps">
+              <li>Open Google Cloud Console and create a project (any name, e.g. “Brisk”).</li>
+              <li>Enable the <b>Google Drive API</b> for it.</li>
+              <li>Under <b>Google Auth Platform</b> → Branding, fill in the app name and your email. On a Workspace account choose <b>Internal</b> audience.</li>
+              <li>Under <b>Clients</b>, create an OAuth client of type <b>Desktop app</b>.</li>
+              <li>Paste its Client ID and Client secret below. Use the same pair on your other computers.</li>
+            </ol>
+            <div class="actions"><button id="open-console">Open Google Cloud Console</button></div>
+          </div>
+          <div class="stack">
+            <input type="text" id="client-id" placeholder="Client ID (ends in .apps.googleusercontent.com)" />
+            <input type="password" id="client-secret" placeholder="Client secret" />
+            <div class="actions"><button class="primary" id="save-client">Save</button></div>
+          </div>
+        </div>
+
+        <div class="row" id="sync-connect" hidden>
+          <div class="label">Sign in with Google<small>Opens your regular browser to approve access to a private app folder in your Drive.</small></div>
+          <button class="primary" id="connect">Connect</button>
+        </div>
+
+        <div class="row" id="sync-on" hidden>
+          <div class="label"><span id="sync-email"></span><small id="sync-last"></small></div>
+          <button id="sync-now">Sync now</button>
+          <button class="danger" id="disconnect">Disconnect</button>
+        </div>
+
+        <div class="row" id="sync-change" hidden>
+          <div class="label"><small>OAuth client: <code id="client-short"></code></small></div>
+          <button id="change-client">Change client</button>
+        </div>
+      </section>
+
+      <section class="card" id="shields">
+        <div class="card-head">
+          <h2>Shields</h2>
+          <p>Blocks ads and trackers using EasyList, EasyPrivacy and related filter lists.</p>
+        </div>
+        <div class="row">
+          <div class="label">Block ads and trackers</div>
+          <label class="switch"><input type="checkbox" data-setting="adblock" /><span></span></label>
+        </div>
+        <div class="row">
+          <div class="label">Upgrade connections to HTTPS<small>Falls back to HTTP automatically if a site doesn’t support it.</small></div>
+          <label class="switch"><input type="checkbox" data-setting="httpsUpgrade" /><span></span></label>
+        </div>
+        <div class="row">
+          <div class="label">Send Global Privacy Control<small>Tells sites you opt out of the sale or sharing of your data.</small></div>
+          <label class="switch"><input type="checkbox" data-setting="sendGPC" /><span></span></label>
+        </div>
+        <div class="stack">
+          <div>Sites with shields off</div>
+          <div id="shields-off"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Search and startup</h2></div>
+        <div class="row">
+          <div class="label">Search engine</div>
+          <select data-setting="searchEngine" id="engine"></select>
+        </div>
+        <div class="row">
+          <div class="label">Home page<small>Leave blank for the Brisk new tab page.</small></div>
+          <input type="url" id="homepage" placeholder="https://…" style="width: 260px" />
+        </div>
+        <div class="row">
+          <div class="label">Reopen tabs from last time</div>
+          <label class="switch"><input type="checkbox" data-setting="restoreTabs" /><span></span></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Appearance</h2><p>Color applies to this profile’s windows. Give each profile its own color to tell them apart.</p></div>
+        <div class="row">
+          <div class="label">Color</div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="row">
+          <div class="label">Theme</div>
+          <select data-setting="theme">
+            <option value="system">Match system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">Show bookmarks bar</div>
+          <label class="switch"><input type="checkbox" data-setting="showBookmarksBar" /><span></span></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Clear browsing data</h2><p>Only affects this computer. History is never synced.</p></div>
+        <div class="row">
+          <div class="label">
+            <label><input type="checkbox" id="clr-history" checked /> History</label>&nbsp;&nbsp;
+            <label><input type="checkbox" id="clr-cache" checked /> Cached files</label>&nbsp;&nbsp;
+            <label><input type="checkbox" id="clr-cookies" /> Cookies and site data <small>(signs you out of sites)</small></label>
+          </div>
+          <button id="clear">Clear</button>
+        </div>
+      </section>
+
+      <p class="muted" id="about"></p>
+    </div>
+    <script src="theme.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>

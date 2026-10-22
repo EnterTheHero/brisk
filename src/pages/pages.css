@@ -1,0 +1,274 @@
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1d1f23;
+  --muted: #6b7079;
+  --line: #e2e4e8;
+  --field: #ffffff;
+  --accent: #e8572a;
+  --accent-soft: rgba(232, 87, 42, 0.1);
+  --focus: #3b6fe0;
+  --ok: #1f8a4c;
+  --bad: #c43c2c;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181b;
+    --card: #222327;
+    --text: #e8e9ec;
+    --muted: #9298a2;
+    --line: #34363c;
+    --field: #1a1b1e;
+    --accent: #ff7a4d;
+    --accent-soft: rgba(255, 122, 77, 0.14);
+    --focus: #7aa2ff;
+    --ok: #4cc27f;
+    --bad: #ff7b6b;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a {
+  color: var(--focus);
+}
+h1 {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+h2 {
+  font-size: 15px;
+  font-weight: 650;
+  margin: 0 0 2px;
+}
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+.sub {
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px 20px;
+  margin-bottom: 18px;
+}
+.card-head {
+  padding: 16px 0 6px;
+}
+.card-head p {
+  color: var(--muted);
+  margin: 0;
+  font-size: 13px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.card-head + .row {
+  border-top: 0;
+}
+.row .label {
+  flex: 1;
+  min-width: 0;
+}
+.row .label small {
+  display: block;
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 1px;
+}
+select,
+input[type='text'],
+input[type='password'],
+input[type='url'] {
+  font: inherit;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  height: 34px;
+  padding: 0 10px;
+  outline: 0;
+}
+select:focus,
+input:focus {
+  border-color: var(--focus);
+}
+button {
+  font: inherit;
+  font-weight: 550;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover {
+  background: var(--accent-soft);
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover {
+  filter: brightness(1.06);
+}
+button.danger {
+  color: var(--bad);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.switch {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  flex: none;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.switch span {
+  position: absolute;
+  inset: 0;
+  background: var(--line);
+  border-radius: 99px;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+.switch span::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s;
+}
+.switch input:checked + span {
+  background: var(--accent);
+}
+.switch input:checked + span::after {
+  transform: translateX(16px);
+}
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: var(--line);
+  color: var(--muted);
+}
+.pill.ok {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+}
+.pill.bad {
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+  color: var(--bad);
+}
+.muted {
+  color: var(--muted);
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.stack input {
+  width: 100%;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+code {
+  font: 12.5px ui-monospace, 'SF Mono', Consolas, monospace;
+  background: var(--accent-soft);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+ol.steps {
+  margin: 4px 0 6px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+ol.steps li {
+  margin: 3px 0;
+}
+.empty {
+  color: var(--muted);
+  padding: 22px 0;
+  text-align: center;
+}
+:root {
+  --accent: var(--profile, #e8572a);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: color-mix(in srgb, var(--profile, #e8572a) 80%, white);
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.swatch.on {
+  border-color: var(--card);
+  box-shadow: 0 0 0 2px var(--text);
+}

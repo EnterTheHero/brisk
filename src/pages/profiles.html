@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Profiles</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="pages.css" />
+    <link rel="stylesheet" href="profiles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="head">
+        <div>
+          <h1>Profiles</h1>
+          <p class="sub">Each profile has its own sign-ins, bookmarks, extensions, history and settings. Use one for work and one for personal, for example.</p>
+        </div>
+        <button class="primary" id="add">Add profile</button>
+      </div>
+      <div id="list"></div>
+      <p class="muted note">Profiles you aren’t using don’t run in the background, so they don’t slow Brisk down. Each profile can sync to its own Google account (Settings → Sync).</p>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden />
+    <script src="theme.js"></script>
+    <script src="profiles.js"></script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+.nt {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px 12vh;
+}
+.clock {
+  font-size: 64px;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.date {
+  color: var(--muted);
+  margin-top: 10px;
+  font-size: 15px;
+}
+.stat {
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stat b {
+  color: var(--accent);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.stat svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.9;
+}
+.tiles {
+  margin-top: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+}
+.tile {
+  width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 8px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+.tile:hover {
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.tile .ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-weight: 650;
+  font-size: 17px;
+  color: var(--muted);
+  overflow: hidden;
+}
+.tile .ic img {
+  width: 22px;
+  height: 22px;
+}
+.tile span {
+  font-size: 12.5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

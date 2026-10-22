@@ -26,6 +26,7 @@ if (location.protocol === 'brisk:') {
     removeProfile: invoke('pages:profileRemove'),
     updateBookmark: invoke('pages:bookmarkUpdate'),
     removeBookmark: invoke('pages:bookmarkRemove'),
+    clearBookmarks: invoke('pages:bookmarkClear'),
     shieldsOn: invoke('pages:shieldsOn'),
     syncSetClient: invoke('pages:syncSetClient'),
     syncConnect: invoke('pages:syncConnect'),

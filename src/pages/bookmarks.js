@@ -372,6 +372,14 @@ $('#file').addEventListener('change', async (e) => {
   openFolder('bar');
 });
 
+$('#clear-all').addEventListener('click', async () => {
+  const total = data.items.length;
+  if (!total) return;
+  if (!confirm(`Delete all ${total} bookmarks and folders in this profile? If sync is on, they'll be removed on your other computers too. Tip: Export first if you might want them back.`)) return;
+  await briskPages.clearBookmarks();
+  openFolder('bar');
+});
+
 $('#export').addEventListener('click', async () => {
   const html = await briskPages.exportBookmarks();
   const a = document.createElement('a');

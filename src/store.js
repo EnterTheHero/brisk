@@ -187,6 +187,21 @@ class Store extends EventEmitter {
     return bm;
   }
 
+  // Deletes every bookmark and folder (kept as deletions, so it syncs to other computers too).
+  removeAllBookmarks() {
+    const t = Date.now();
+    let n = 0;
+    for (const b of this.data.bookmarks) {
+      if (!b.deleted) {
+        b.deleted = true;
+        b.updatedAt = t;
+        n++;
+      }
+    }
+    if (n) this._changed('bookmarks');
+    return n;
+  }
+
   moveBookmark(id, parentId, position) {
     const r = BM.move(this.data.bookmarks, id, parentId, position);
     if (r) this._changed('bookmarks');

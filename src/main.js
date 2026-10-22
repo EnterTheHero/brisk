@@ -689,6 +689,7 @@ function registerIpc(brisk) {
   page('pages:bookmarkUpdate', (e, id, fields) => profileFor(e).store.updateBookmark(id, fields || {}));
   page('pages:bookmarkMove', (e, id, parentId, position) => profileFor(e).store.moveBookmark(id, parentId, position));
   page('pages:bookmarkRemove', (e, id) => profileFor(e).store.removeBookmark(id));
+  page('pages:bookmarkClear', (e) => profileFor(e).store.removeAllBookmarks());
 
   page('pages:shieldsOn', (e, host) => profileFor(e).store.setShieldsOff(host, false));
   page('pages:syncSetClient', (e, id, secret) => profileFor(e).sync.setClient(id, secret));

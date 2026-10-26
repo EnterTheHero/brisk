@@ -68,6 +68,7 @@ function render() {
   document.body.classList.toggle('mac', state.platform === 'darwin');
   document.body.classList.toggle('fullscreen', !!state.fullscreen);
   document.body.classList.toggle('private', !!state.isPrivate);
+  document.body.classList.toggle('tabs-left', !!state.tabsLeft);
   $('#private-badge').hidden = !state.isPrivate;
   renderTabs();
   renderToolbar();
@@ -382,7 +383,7 @@ function hideSuggestions() {
   if (suggBox.hidden) return;
   suggBox.hidden = true;
   suggestions = [];
-  setOverlay(false);
+  if (!menuOpen) setOverlay(false);
 }
 
 function highlight(i) {
@@ -552,3 +553,111 @@ brisk.onDownloads((list) => {
 });
 
 window.addEventListener('resize', renderTabs);
+
+// ---------- Brisk's own menus (toolbar, right-click, bookmark folders) ----------
+// The main process sends a menu as plain data; we draw it over the page and send back the picked id.
+const MENU_ICONS = {
+  folder: ICONS.folder,
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  arrow: '<path d="M9 6l6 6-6 6"/>',
+};
+let menuOpen = false;
+
+function closeMenu(silent) {
+  document.querySelectorAll('.pm').forEach((el) => el.remove());
+  if (menuOpen && !silent) {
+    menuOpen = false;
+    if (suggBox.hidden) setOverlay(false);
+  }
+  menuOpen = false;
+}
+
+function menuItemEl(it) {
+  if (it.type === 'separator') return Object.assign(document.createElement('div'), { className: 'pm-sep' });
+  const el = document.createElement('div');
+  el.className = 'pm-item' + (it.enabled ? '' : ' disabled') + (it.submenu ? ' has-sub' : '') + (it.header ? ' header' : '');
+  let lead = '';
+  if (it.avatar) {
+    const a = it.avatar;
+    lead = `<span class="pm-avatar" style="background:${esc(a.color)}">${a.img ? `<img src="${esc(a.img)}" alt="">` : esc(a.letter || '')}</span>`;
+  } else if (it.favicon) {
+    lead = `<img class="pm-fav" src="https://${esc(it.favicon)}/favicon.ico" alt="">`;
+  } else if (it.folder) {
+    lead = `<span class="pm-ico folder">${icon('folder')}</span>`;
+  } else if (it.checked !== undefined) {
+    lead = `<span class="pm-ico">${it.checked ? `<svg viewBox="0 0 24 24">${MENU_ICONS.check}</svg>` : ''}</span>`;
+  }
+  el.innerHTML = `${lead}<span class="pm-label">${esc(it.label)}</span>${it.accel ? `<span class="pm-accel">${esc(it.accel)}</span>` : ''}${
+    it.submenu ? `<span class="pm-ico sub"><svg viewBox="0 0 24 24">${MENU_ICONS.arrow}</svg></span>` : ''
+  }`;
+  const fav = el.querySelector('.pm-fav');
+  if (fav) fav.onerror = () => fav.replaceWith(Object.assign(document.createElement('span'), { className: 'pm-dot' }));
+  return el;
+}
+
+function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect = null } = {}) {
+  document.querySelectorAll('.pm').forEach((el) => Number(el.dataset.level) >= level && el.remove());
+  const panel = document.createElement('div');
+  panel.className = 'pm';
+  panel.dataset.level = String(level);
+  for (const it of items) {
+    const el = menuItemEl(it);
+    panel.appendChild(el);
+    if (it.type === 'separator' || !it.enabled) {
+      el.addEventListener('mouseenter', () => document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) > level && p.remove()));
+      continue;
+    }
+    if (it.submenu) {
+      const open = () => {
+        const r = el.getBoundingClientRect();
+        openMenuPanel(it.submenu, r.right - 4, r.top - 6, { level: level + 1, parentRect: r });
+      };
+      el.addEventListener('mouseenter', open);
+      el.addEventListener('click', open);
+    } else {
+      el.addEventListener('mouseenter', () => document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) > level && p.remove()));
+      el.addEventListener('click', () => {
+        closeMenu();
+        brisk.menuPick(it.id);
+      });
+      el.addEventListener('auxclick', (e) => {
+        if (e.button === 1 && it.url) {
+          closeMenu();
+          brisk.openBookmark(it.url, true);
+        }
+      });
+    }
+  }
+  document.body.appendChild(panel);
+  // Fit inside the window: flip left/up when needed, scroll when too tall.
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  panel.style.maxHeight = `${H - 16}px`;
+  const r = panel.getBoundingClientRect();
+  let left = alignRight ? x - r.width : x;
+  let top = y;
+  if (left + r.width > W - 6) left = parentRect ? parentRect.left - r.width + 4 : W - r.width - 6;
+  if (left < 6) left = 6;
+  if (top + r.height > H - 8) top = Math.max(8, H - r.height - 8);
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+}
+
+brisk.onMenuShow(({ items, anchor }) => {
+  hideSuggestions();
+  closeMenu(true);
+  menuOpen = true;
+  setOverlay(true);
+  // Wait a frame so the toolbar has grown to cover the window before measuring.
+  requestAnimationFrame(() => requestAnimationFrame(() => openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight })));
+});
+
+$('#scrim').addEventListener('mousedown', () => closeMenu());
+$('#scrim').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  closeMenu();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && menuOpen) closeMenu();
+});
+window.addEventListener('blur', () => menuOpen && closeMenu());

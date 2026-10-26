@@ -100,12 +100,28 @@
           <div class="swatches" id="swatches"></div>
         </div>
         <div class="row">
+          <div class="label">New tab background<small>A picture from your computer, shown behind the clock. Kept on this computer only.</small></div>
+          <button id="bg-choose">Choose picture…</button>
+          <button id="bg-remove" hidden>Remove</button>
+        </div>
+        <div class="row">
           <div class="label">Theme</div>
           <select data-setting="theme">
             <option value="system">Match system</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
+        </div>
+        <div class="row">
+          <div class="label">Tabs<small>On the left, tabs are a slim list you can resize by dragging its edge.</small></div>
+          <select data-setting="tabsPosition">
+            <option value="top">Across the top</option>
+            <option value="left">Down the left side</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">Startup picture<small>Shows the Brisk logo for a moment while the browser opens.</small></div>
+          <label class="switch"><input type="checkbox" data-setting="showSplash" /><span></span></label>
         </div>
         <div class="row">
           <div class="label">Show bookmarks bar</div>

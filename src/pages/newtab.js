@@ -44,5 +44,30 @@ async function load() {
   });
 }
 
+// ---- background picture ----
+async function loadBackground() {
+  const v = await briskPages.newtabBg();
+  document.body.classList.toggle('has-bg', !!v);
+  document.body.style.backgroundImage = v ? `url("brisk://newtab/background?v=${v}")` : '';
+  document.getElementById('bg-remove').hidden = !v;
+}
+
+const menu = document.getElementById('cust-menu');
+document.getElementById('customize').addEventListener('click', (e) => {
+  e.stopPropagation();
+  menu.hidden = !menu.hidden;
+});
+document.addEventListener('click', () => (menu.hidden = true));
+document.getElementById('bg-choose').addEventListener('click', async () => {
+  menu.hidden = true;
+  const r = await briskPages.chooseNewtabBg();
+  if (r && r.error) alert(r.error);
+});
+document.getElementById('bg-remove').addEventListener('click', () => {
+  menu.hidden = true;
+  briskPages.removeNewtabBg();
+});
+
 load();
-briskPages.onChanged(load);
+loadBackground();
+briskPages.onChanged((kind) => (kind === 'newtab' ? loadBackground() : load()));

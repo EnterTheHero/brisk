@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'" />
+    <title>Brisk</title>
+    <link rel="stylesheet" href="../fonts/fonts.css" />
+    <style>
+      html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; cursor: default; }
+      .card {
+        position: absolute; inset: 0; border-radius: 14px; overflow: hidden;
+        background: radial-gradient(ellipse 60% 55% at 50% 38%, #3a1f17 0%, #1b1a1d 70%, #161619 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-family: Inter, 'Segoe UI', system-ui, sans-serif; color: #f4f4f5;
+        animation: in 0.35s ease-out both;
+      }
+      @keyframes in { from { opacity: 0; transform: scale(0.97); } }
+      .logo {
+        width: 68px; height: 68px; border-radius: 16px; background: #e8572c;
+        display: grid; place-items: center; box-shadow: 0 8px 24px rgba(232, 87, 44, 0.35);
+      }
+      .logo svg { width: 40px; height: 40px; fill: #fff; }
+      h1 { margin: 22px 0 6px; font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+      p { margin: 0; font-size: 14px; color: #a1a1aa; }
+      .bar { margin-top: 30px; width: 220px; height: 6px; border-radius: 3px; background: #2e2e33; overflow: hidden; position: relative; }
+      .bar i { position: absolute; top: 0; bottom: 0; width: 38%; border-radius: 3px; background: #e8572c; animation: slide 1.2s ease-in-out infinite; }
+      @keyframes slide { from { left: -38%; } to { left: 100%; } }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="logo"><svg viewBox="0 0 24 24"><path d="M13.2 2.5L5 13.6h6.1L10 21.5l8.4-11.3h-6.2z"/></svg></div>
+      <h1>Brisk</h1>
+      <p>Getting things ready…</p>
+      <div class="bar"><i></i></div>
+    </div>
+  </body>
+</html>

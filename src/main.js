@@ -29,12 +29,13 @@ const { registerCompatPreload } = require('./compat');
 const { SEARCH_ENGINES } = require('./store');
 const { Shields } = require('./shields');
 const { ProfileManager, COLORS } = require('./profiles');
+const { Splash } = require('./splash');
 const { BrowserWin, NEW_TAB } = require('./window');
 const { Updater } = require('./updater');
-const { popupMenu } = require('./menu-popup');
 
 const IS_MAC = process.platform === 'darwin';
 const PAGES_DIR = path.join(__dirname, 'pages');
+const NEWTAB_BG = 'newtab-background.jpg';
 const FONTS_DIR = path.join(__dirname, 'fonts');
 const PAGES = {
   newtab: 'newtab.html',
@@ -116,6 +117,12 @@ class BriskApp {
     registerCompatPreload(ses);
     ses.protocol.handle('brisk', (req) => {
       const u = new URL(req.url);
+      // This profile's new-tab background picture (kept on this computer, not synced).
+      if (u.host === 'newtab' && u.pathname === '/background') {
+        const file = path.join(profile.dir, NEWTAB_BG);
+        if (!fs.existsSync(file)) return new Response('', { status: 404 });
+        return net.fetch(pathToFileURL(file).toString());
+      }
       const file = u.pathname === '/' || u.pathname === '' ? PAGES[u.host] : path.basename(u.pathname);
       let full = file && path.join(PAGES_DIR, file);
       if (file && !fs.existsSync(full)) full = path.join(FONTS_DIR, file); // shared font files
@@ -262,7 +269,7 @@ class BriskApp {
 
   windowForContents(wc) {
     for (const w of this.windows.values()) {
-      if (w.ui.webContents === wc) return w;
+      if (w.ui.webContents === wc || (w.side && w.side.webContents === wc)) return w;
       for (const t of w.tabs.values()) if (t.wc === wc) return w;
     }
     return null;
@@ -349,13 +356,19 @@ class BriskApp {
 
   // ---- profiles menu (avatar button) ----
   showProfileMenu(w, anchor) {
-    const others = this.profiles.list().filter((p) => p.id !== w.profile.id);
+    const avatarOf = (p) => ({ color: p.color, img: p.avatar || '', letter: (p.name || '?').trim().charAt(0).toUpperCase() });
+    const all = this.profiles.list();
+    const openWindows = new Set([...this.windows.values()].filter((x) => !x.isPrivate).map((x) => x.profile.id));
     const template = [
-      { label: w.profile.meta.name.replace(/&/g, '&&'), enabled: false },
-      { label: 'Edit Profile…', click: () => w.createTab(`brisk://profiles#${w.profile.id}`) },
+      { label: 'Switch profile', enabled: false, header: true },
+      ...all.map((p) => ({
+        label: p.id === w.profile.id ? `${p.name}  (this window)` : p.name,
+        avatar: avatarOf(p),
+        accelerator: p.id !== w.profile.id && openWindows.has(p.id) ? 'open' : undefined,
+        click: () => (p.id === w.profile.id ? w.win.focus() : this.openProfile(p.id)),
+      })),
       { type: 'separator' },
-      ...(others.length ? others.map((p) => ({ label: `Open ${p.name.replace(/&/g, '&&')}`, click: () => this.openProfile(p.id) })) : []),
-      ...(others.length ? [{ type: 'separator' }] : []),
+      { label: 'Edit This Profile…', click: () => w.createTab(`brisk://profiles#${w.profile.id}`) },
       {
         label: 'Add Profile…',
         click: async () => {
@@ -366,8 +379,9 @@ class BriskApp {
       },
       { label: 'Manage Profiles', click: () => w.createTab('brisk://profiles') },
     ];
-    popupMenu(template, w.win, anchor);
+    w._popup(template, anchor);
   }
+
 
   // ---- downloads ----
   trackDownload(item, wc) {
@@ -420,7 +434,7 @@ class BriskApp {
         },
       }
     );
-    popupMenu(items, w.win, anchor);
+    w._popup(items, anchor);
   }
 
   // ---- menus ----
@@ -605,7 +619,7 @@ function registerIpc(brisk) {
   // From the toolbar UI. The sender must be one of our toolbar views.
   const ui = (channel, fn) =>
     ipcMain.handle(channel, (event, ...args) => {
-      const w = [...brisk.windows.values()].find((x) => x.ui.webContents === event.sender);
+      const w = [...brisk.windows.values()].find((x) => x.ui.webContents === event.sender || (x.side && x.side.webContents === event.sender));
       if (!w) return undefined;
       return fn(w, ...args);
     });
@@ -633,6 +647,8 @@ function registerIpc(brisk) {
   ui('find:query', (w, text, opts) => w.find(text, opts || {}));
   ui('find:stop', (w) => w.stopFind());
   ui('menu:main', (w, anchor) => w.showMainMenu(anchor));
+  ui('menu:pick', (w, id) => w.pickMenu(Number(id)));
+  ui('side:width', (w, px, save) => w.setLiveSidebarWidth(px, !!save));
   ui('menu:shields', (w, anchor) => w.showShieldsMenu(anchor));
   ui('menu:tab', (w, id) => w.showTabMenu(id));
   ui('menu:bookmark', (w, id) => w.showBookmarkMenu(id));
@@ -671,6 +687,43 @@ function registerIpc(brisk) {
     };
   });
   page('pages:setSetting', (e, key, value) => profileFor(e).store.setSetting(key, value));
+
+  // ---- new tab background ----
+  const bgVersion = (P) => {
+    try {
+      return Math.round(fs.statSync(path.join(P.dir, NEWTAB_BG)).mtimeMs);
+    } catch {
+      return 0;
+    }
+  };
+  page('pages:newtabBg', (e) => bgVersion(profileFor(e)));
+  page('pages:newtabBgChoose', async (e) => {
+    const P = profileFor(e);
+    const w = brisk.windowForContents(e.sender);
+    const { canceled, filePaths } = await dialog.showOpenDialog(w ? w.win : undefined, {
+      title: 'Choose a background picture',
+      properties: ['openFile'],
+      filters: [{ name: 'Pictures', extensions: ['jpg', 'jpeg', 'png'] }],
+    });
+    if (canceled || !filePaths[0]) return { ok: false };
+    let img = nativeImage.createFromPath(filePaths[0]);
+    if (img.isEmpty()) return { ok: false, error: 'Brisk couldn’t read that picture. Try a JPG or PNG.' };
+    const { width } = img.getSize();
+    if (width > 2560) img = img.resize({ width: 2560, quality: 'best' });
+    fs.writeFileSync(path.join(P.dir, NEWTAB_BG), img.toJPEG(88));
+    brisk.notifyPages('pages:changed', 'newtab', P);
+    return { ok: true };
+  });
+  page('pages:newtabBgRemove', (e) => {
+    const P = profileFor(e);
+    try {
+      fs.rmSync(path.join(P.dir, NEWTAB_BG), { force: true });
+    } catch {
+      /* already gone */
+    }
+    brisk.notifyPages('pages:changed', 'newtab', P);
+    return true;
+  });
 
   // ---- bookmarks ----
   page('pages:bookmarks', (e) => {
@@ -786,8 +839,23 @@ app.whenReady().then(async () => {
   global.__brisk = brisk; // handy for debugging from DevTools / smoke tests
   registerIpc(brisk);
   brisk.buildAppMenu();
+  let splash = null;
+  try {
+    const first = brisk.profiles.get(brisk.profiles.startupIds()[0]);
+    if (first.store.get('showSplash') !== false && !process.argv.includes('--no-splash')) splash = new Splash();
+  } catch {}
   // Each profile loads its extensions before its tabs open, so their content scripts apply.
   await brisk.restoreOrOpen();
+  if (splash) {
+    const w = brisk.currentWindow() || [...brisk.windows.values()][0];
+    const tab = w && w.tabs.get(w.activeId);
+    const wc = tab && (tab.view ? tab.view.webContents : tab.webContents);
+    if (wc && wc.isLoading()) {
+      const finish = () => splash.done();
+      wc.once('did-stop-loading', finish);
+      setTimeout(finish, 2500); // slow sites: the window is already up, no need to wait for them
+    } else splash.done();
+  }
   brisk.updater.start();
   if (pendingUrls.length) brisk.openUrls(pendingUrls.splice(0));
 

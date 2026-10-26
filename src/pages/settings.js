@@ -104,6 +104,21 @@ $('#swatches').addEventListener('click', (e) => {
   if (c) briskPages.updateProfile(current.profile.id, { color: c });
 });
 
+// new tab background
+async function renderBg() {
+  $('#bg-remove').hidden = !(await briskPages.newtabBg());
+}
+$('#bg-choose').addEventListener('click', async () => {
+  const r = await briskPages.chooseNewtabBg();
+  if (r && r.error) alert(r.error);
+  renderBg();
+});
+$('#bg-remove').addEventListener('click', async () => {
+  await briskPages.removeNewtabBg();
+  renderBg();
+});
+renderBg();
+
 // sync controls
 $('#open-console').addEventListener('click', () => briskPages.openExternal('https://console.cloud.google.com/apis/library/drive.googleapis.com'));
 $('#save-client').addEventListener('click', async () => {

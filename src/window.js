@@ -16,6 +16,8 @@ const ZOOM_STEPS = [-3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3];
 const HTTPS_FAIL_CODES = new Set([-100, -101, -102, -105, -106, -107, -109, -118, -200, -201, -202, -203, -207, -310, -324]);
 
 let nextTabId = 1;
+const SIDE_MIN = 44; // icons only
+const SIDE_MAX = 420;
 
 // Menu labels: keep them short, and stop Windows treating "&" as a keyboard shortcut marker.
 function menuLabel(text) {
@@ -97,6 +99,7 @@ class BrowserWin {
         if (!t.wc.isDestroyed()) t.wc.close();
       }
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
+      if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.close();
       this.app.onWindowClosed(this);
     });
     // Mouse back/forward buttons (Windows) and trackpad swipes (Mac)
@@ -125,15 +128,55 @@ class BrowserWin {
   }
 
   // ---------------------------------------------------------------- layout
+  get tabsLeft() {
+    return this.profile.store.get('tabsPosition') === 'left';
+  }
+
+  sidebarWidth() {
+    const w = this._liveSideWidth || Number(this.profile.store.get('sidebarWidth')) || 110;
+    return Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(w)));
+  }
+
+  // Vertical tabs live in their own view on the left, under the toolbar.
+  _ensureSide() {
+    if (this.side) return;
+    this.side = new WebContentsView({
+      webPreferences: { preload: UI_PRELOAD, contextIsolation: true, sandbox: false, nodeIntegration: false },
+    });
+    this.side.setBackgroundColor('#00000000');
+    this.win.contentView.addChildView(this.side);
+    this.side.webContents.loadFile(path.join(__dirname, 'ui', 'sidebar.html'));
+    this.side.webContents.on('will-navigate', (e) => e.preventDefault());
+    this.side.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    this.side.webContents.on('did-finish-load', () => this.pushState());
+    this._raiseUi();
+  }
+
+  setLiveSidebarWidth(px, save) {
+    this._liveSideWidth = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(Number(px) || 110)));
+    this.layout();
+    if (save) {
+      this.profile.store.setSetting('sidebarWidth', this._liveSideWidth);
+      this._liveSideWidth = null;
+    }
+  }
+
   layout() {
     if (this.win.isDestroyed()) return;
     const { width, height } = this.win.getContentBounds();
     const top = this.htmlFullscreen ? 0 : this.chromeHeight;
+    const left = this.tabsLeft && !this.htmlFullscreen;
+    if (left) this._ensureSide();
+    const sideW = left ? Math.min(this.sidebarWidth(), Math.max(SIDE_MIN, width - 200)) : 0;
     this.ui.setBounds({ x: 0, y: 0, width, height: this.overlay ? height : this.htmlFullscreen ? 0 : top });
+    if (this.side) {
+      this.side.setVisible(left);
+      if (left) this.side.setBounds({ x: 0, y: top, width: sideW, height: Math.max(0, height - top) });
+    }
     for (const [id, tab] of this.tabs) {
       const active = id === this.activeId;
       tab.view.setVisible(active);
-      if (active) tab.view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) });
+      if (active) tab.view.setBounds({ x: sideW, y: top, width: Math.max(0, width - sideW), height: Math.max(0, height - top) });
     }
   }
 
@@ -467,18 +510,84 @@ class BrowserWin {
     );
   }
 
-  _popup(template, anchor) {
-    popupMenu(template, this.win, anchor);
+  // Shows a menu drawn by Brisk's toolbar UI (consistent look, and it opens exactly where
+  // we want on every system). Without an anchor it opens at the mouse pointer.
+  // Falls back to a system menu if the toolbar isn't available.
+  _popup(template, anchor, { returnFocus } = {}) {
+    if (this.win.isDestroyed() || this.ui.webContents.isDestroyed()) return;
+    this._menuReturnFocus = returnFocus || null;
+    if (!anchor || typeof anchor.x !== 'number') anchor = this._cursorPoint();
+    if (!anchor) return popupMenu(template, this.win);
+    const handlers = new Map();
+    let n = 0;
+    const accel = (a) => {
+      if (!a) return '';
+      return String(a)
+        .replace(/CmdOrCtrl|CommandOrControl/g, IS_MAC ? '⌘' : 'Ctrl')
+        .replace(/\bPlus\b/, '+')
+        .replace(/\bComma\b/, ',')
+        .replace(/^Cmd\+/, '⌘')
+        .replace(/⌘\+/, '⌘');
+    };
+    const conv = (items, depth) =>
+      (items || [])
+        .filter((i) => i && i.visible !== false)
+        .map((i) => {
+          if (i.type === 'separator') return { type: 'separator' };
+          const id = ++n;
+          const sub = i.submenu ? (Array.isArray(i.submenu) ? i.submenu : i.submenu.items) : null;
+          if (typeof i.click === 'function' && !sub) handlers.set(id, () => i.click(i, this.win));
+          return {
+            id,
+            label: String(i.label || '').replace(/&&/g, '&'),
+            accel: accel(i.accelerator),
+            enabled: i.enabled !== false && (typeof i.click === 'function' || !!sub),
+            header: !!i.header,
+            checked: i.type === 'radio' || i.type === 'checkbox' ? !!i.checked : undefined,
+            avatar: i.avatar,
+            favicon: i.favicon,
+            folder: !!i.folder,
+            url: i.url,
+            submenu: sub && depth < 30 ? conv(sub, depth + 1) : undefined,
+          };
+        });
+    this._menuHandlers = handlers;
+    this.ui.webContents.send('menu:show', { items: conv(template, 0), anchor });
+    this.ui.webContents.focus();
+  }
+
+  pickMenu(id) {
+    const fn = this._menuHandlers && this._menuHandlers.get(id);
+    const back = this._menuReturnFocus;
+    this._menuHandlers = null;
+    this._menuReturnFocus = null;
+    // Give focus back to the page first, so Copy/Paste/Undo act on what was selected there.
+    if (back && !back.isDestroyed()) back.focus();
+    if (fn) setTimeout(fn, 0);
+  }
+
+  // Mouse position inside this window (for right-click menus).
+  _cursorPoint() {
+    try {
+      const p = screen.getCursorScreenPoint();
+      const b = this.win.getContentBounds();
+      const x = p.x - b.x;
+      const y = p.y - b.y;
+      if (x < 0 || y < 0 || x > b.width || y > b.height) return { x: b.width / 2, y: this.chromeHeight };
+      return { x, y };
+    } catch {
+      return null;
+    }
   }
 
   _bookmarkMenuItems(nodes, depth = 0) {
     if (!nodes.length) return [{ label: '(empty)', enabled: false }];
     return nodes.map((n) => {
-      if (n.type !== 'folder') return { label: menuLabel(n.title || n.url), click: () => this.navigate(n.url) };
+      if (n.type !== 'folder') return { label: menuLabel(n.title || n.url), click: () => this.navigate(n.url), favicon: hostOf(n.url), url: n.url };
       const links = n.children.filter((c) => c.type === 'bookmark');
       const sub = depth < 25 ? this._bookmarkMenuItems(n.children, depth + 1) : [];
       if (links.length > 1) sub.unshift({ label: `Open All (${links.length}) in Tabs`, click: () => this.openAll(links) }, { type: 'separator' });
-      return { label: menuLabel(n.title), submenu: sub };
+      return { label: menuLabel(n.title), submenu: sub, folder: true };
     });
   }
 
@@ -539,7 +648,14 @@ class BrowserWin {
       };
     });
     const settings = store.getSettings();
-    this.ui.webContents.send('state', {
+    const tabsLeft = settings.tabsPosition === 'left';
+    if (tabsLeft !== this._lastTabsLeft) {
+      this._lastTabsLeft = tabsLeft;
+      this.layout();
+    }
+    const state = {
+      tabsLeft,
+      sidebarWidth: this.sidebarWidth(),
       tabs,
       activeId: this.activeId,
       activeWcId: this.active && !this.active.wc.isDestroyed() ? this.active.wc.id : -1,
@@ -553,7 +669,9 @@ class BrowserWin {
       profileCount: this.app.profiles.list().length,
       partition: this.profile.partition,
       updateReady: !!this.app.updater.menuItem(),
-    });
+    };
+    this.ui.webContents.send('state', state);
+    if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.send('state', state);
     const active = this.active;
     if (active) this.win.setTitle(`${active.title || 'Brisk'}${this.isPrivate ? ' — Private' : ''}`);
   }
@@ -585,7 +703,7 @@ class BrowserWin {
   showTabMenu(id) {
     const t = this.tabs.get(id);
     if (!t) return;
-    Menu.buildFromTemplate([
+    this._popup([
       { label: 'New Tab to the Right', click: () => this.createTab(NEW_TAB, { index: this.order.indexOf(id) + 1 }) },
       { label: 'Reload', click: () => t.wc.reload() },
       { label: 'Duplicate', click: () => this.createTab(t.url, { index: this.order.indexOf(id) + 1 }) },
@@ -602,7 +720,7 @@ class BrowserWin {
         enabled: this.order.indexOf(id) < this.order.length - 1,
         click: () => this.order.slice(this.order.indexOf(id) + 1).forEach((x) => this.closeTab(x)),
       },
-    ]).popup({ window: this.win });
+    ]);
   }
 
   showBookmarkMenu(id) {
@@ -611,23 +729,23 @@ class BrowserWin {
     if (!item) return;
     if (item.type === 'folder') {
       const links = store.bookmarkChildren(id).filter((b) => b.type === 'bookmark');
-      Menu.buildFromTemplate([
+      this._popup([
         { label: `Open All (${links.length}) in Tabs`, enabled: links.length > 0, click: () => this.openAll(links) },
         { type: 'separator' },
         { label: 'Edit in Bookmark Manager…', click: () => this.createTab(`brisk://bookmarks#${id}`) },
         { label: 'Delete Folder', click: () => store.removeBookmark(id) },
-      ]).popup({ window: this.win });
+      ]);
       return;
     }
     const bm = item;
-    Menu.buildFromTemplate([
+    this._popup([
       { label: 'Open in New Tab', click: () => this.createTab(bm.url, { background: true }) },
       { label: 'Open in New Window', click: () => this.app.newWindow({ urls: [bm.url], profile: this.profile }) },
       { label: 'Copy Link', click: () => clipboard.writeText(bm.url) },
       { type: 'separator' },
       { label: 'Edit…', click: () => this.createTab(`brisk://bookmarks#${id}`) },
       { label: 'Delete', click: () => this.profile.store.removeBookmark(id) },
-    ]).popup({ window: this.win });
+    ]);
   }
 
   showShieldsMenu(anchor) {
@@ -744,7 +862,8 @@ class BrowserWin {
       if (extItems.length) items.push(...extItems, { type: 'separator' });
     }
     items.push({ label: 'Inspect', click: () => wc.inspectElement(params.x, params.y) });
-    Menu.buildFromTemplate(items).popup({ window: this.win });
+    const b = tab.view.getBounds();
+    this._popup(items, { x: b.x + params.x, y: b.y + params.y }, { returnFocus: wc });
   }
 
   openExternal(url) {

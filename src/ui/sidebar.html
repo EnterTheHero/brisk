@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: http: data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Tabs</title>
+    <link rel="stylesheet" href="../fonts/fonts.css" />
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="sidebar.css" />
+  </head>
+  <body class="side">
+    <div id="side">
+      <button id="side-new" title="New tab"><span class="plus"></span><span class="lbl">New tab</span></button>
+      <div id="vtabs" role="tablist"></div>
+    </div>
+    <div id="grip" title="Drag to resize"></div>
+    <script src="sidebar.js"></script>
+  </body>
+</html>

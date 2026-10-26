@@ -86,3 +86,99 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- background picture ---------- */
+body {
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+body.has-bg::before {
+  /* soft shade so the clock and shortcuts stay readable on any picture */
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.42));
+  pointer-events: none;
+}
+body.has-bg .nt {
+  position: relative;
+  color: #fff;
+}
+body.has-bg .clock,
+body.has-bg .date,
+body.has-bg .stat,
+body.has-bg .tile span {
+  color: #fff;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+}
+body.has-bg .tile:hover {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+body.has-bg .tile .ic {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: transparent;
+}
+body.has-bg .stat b,
+body.has-bg .stat svg {
+  color: #fff;
+  stroke: #fff;
+}
+
+/* ---------- customize button ---------- */
+.customize {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2;
+}
+#customize {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  border-radius: 99px;
+  padding: 0 14px 0 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+body.has-bg #customize {
+  background: rgba(20, 20, 24, 0.45);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  backdrop-filter: blur(10px);
+}
+#customize svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.cust-menu {
+  position: absolute;
+  right: 0;
+  bottom: 42px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+}
+.cust-menu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  height: 32px;
+  border-radius: 7px;
+  font-weight: 450;
+}
+.cust-menu button:hover {
+  background: var(--accent-soft);
+}

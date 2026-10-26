@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
   showBookmarksBar: true,
   restoreTabs: true,
   theme: 'system',
+  tabsPosition: 'top', showSplash: true, // or 'left' (vertical tabs)
+  sidebarWidth: 110,
 };
 
 const SEARCH_ENGINES = {

@@ -1,10 +1,13 @@
 # Builds Brisk for Windows and Mac and publishes a GitHub Release.
-# Runs when a version tag (like v0.5.0) is pushed, or by hand from the Actions tab.
+# Runs when the version in package.json changes on main (or a v* tag is pushed, or by hand
+# from the Actions tab). A version that already has a release is skipped.
 # Installed copies of Brisk check the latest release for updates.
 name: Release
 
 on:
   push:
+    branches: [main]
+    paths: [package.json]
     tags: ['v*']
   workflow_dispatch:
 
@@ -12,11 +15,30 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.v.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 && [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF_TYPE" = branch ]; then
+            echo "v$VERSION is already released"; echo build=false >> "$GITHUB_OUTPUT"
+          else
+            echo build=true >> "$GITHUB_OUTPUT"
+          fi
+
   windows:
+    needs: check
+    if: needs.check.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,13 +56,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          gh release create "v$VERSION" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
           gh release upload "v$VERSION" \
             "release/squirrel-windows/Brisk-Setup-$VERSION.exe" \
             "release/squirrel-windows/Brisk-$VERSION-full.nupkg" \
             "release/squirrel-windows/RELEASES" --clobber
 
   mac:
+    needs: check
+    if: needs.check.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,5 +91,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          gh release create "v$VERSION" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Brisk $VERSION" --notes "Brisk $VERSION" 2>/dev/null || true
           gh release upload "v$VERSION" release/Brisk-$VERSION-mac-*.zip --clobber

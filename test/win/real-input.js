@@ -6,14 +6,15 @@ const { execFileSync } = require('child_process');
 const { app, screen } = require('electron');
 const out = path.resolve(process.argv.find((a) => a.startsWith('--out='))?.slice(6) || path.join(__dirname, 'out'));
 fs.mkdirSync(out, { recursive: true });
-const log = (...a) => { const l = a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
-app.setPath('userData', path.join(out, 'profile'));
+const log = (...a) => { const l = (process.argv.includes('--left') ? '[left] ' : '[top] ') + a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
+const LEFT = process.argv.includes('--left');
+app.setPath('userData', path.join(out, LEFT ? 'profile-left' : 'profile'));
 log('started', process.versions.electron);
 require('../../src/main.js');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const ps = (...args) => execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'input.ps1'), ...args.map(String)]);
 let shotN = 0;
-const shot = (name) => ps('shot', 0, 0, path.join(out, `${String(++shotN).padStart(2, '0')}-${name}.png`));
+const shot = (name) => ps('shot', 0, 0, path.join(out, `${LEFT ? 'L' : 'T'}${String(++shotN).padStart(2, '0')}-${name}.png`));
 // window content point (DIP) -> physical screen pixels
 function toScreen(w, x, y) {
   const cb = w.win.getContentBounds();
@@ -45,6 +46,13 @@ app.whenReady().then(async () => {
     const w = b.currentWindow();
     w.win.setBounds({ x: 40, y: 40, width: 1200, height: 800 });
     w.win.focus();
+    if (LEFT) {
+      b.currentProfile().store.setSetting('tabsPosition', 'left');
+      b.currentProfile().store.setSetting('restoreTabs', false);
+      await wait(1500);
+    }
+    const tabView = () => (LEFT ? w.side : w.ui);
+    const tabSel = LEFT ? '.vtab' : '.tab';
     log('scale', screen.getPrimaryDisplay().scaleFactor, 'content', JSON.stringify(w.win.getContentBounds()));
     w.navigate('http://127.0.0.1:8767/');
     await wait(2000);
@@ -65,9 +73,9 @@ app.whenReady().then(async () => {
     shot('A-after-pick');
 
     // ---- B: right-click a tab, Add Tab to New Group, type a name ----
-    await clickEl(w, w.ui, `document.querySelectorAll('.tab')[0]`); // activate first tab
+    await clickEl(w, tabView(), `document.querySelectorAll('${tabSel}')[0]`); // activate first tab
     await wait(500);
-    await clickEl(w, w.ui, `document.querySelectorAll('.tab')[0]`, 'rclick');
+    await clickEl(w, tabView(), `document.querySelectorAll('${tabSel}')[0]`, 'rclick');
     await wait(1000);
     log('B tab menu:', await menuLabels(w));
     shot('B-tab-menu');
@@ -85,8 +93,8 @@ app.whenReady().then(async () => {
     shot('B-after-enter');
 
     // ---- C: right-click another tab, Add Tab to Group > Work ----
-    const lastTab = `[...document.querySelectorAll('.tab')].pop()`;
-    await clickEl(w, w.ui, lastTab, 'rclick');
+    const lastTab = `[...document.querySelectorAll('${tabSel}')].pop()`;
+    await clickEl(w, tabView(), lastTab, 'rclick');
     await wait(1000);
     log('C tab menu:', await menuLabels(w));
     await clickEl(w, w.ui, findItem('Add Tab to Group'));

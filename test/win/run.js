@@ -16,4 +16,4 @@ function run(extra) {
     p.on('exit', (code, sig) => { clearTimeout(kill); fs.appendFileSync(logf, `\nexit ${code} ${sig}\n`); done(); });
   });
 }
-(async () => { await run([]); await run(['--left']); })();
+(async () => { await run(['--left', '--dashlane']); await run(['--dashlane']); })();

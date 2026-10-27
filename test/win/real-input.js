@@ -6,15 +6,16 @@ const { execFileSync } = require('child_process');
 const { app, screen } = require('electron');
 const out = path.resolve(process.argv.find((a) => a.startsWith('--out='))?.slice(6) || path.join(__dirname, 'out'));
 fs.mkdirSync(out, { recursive: true });
-const log = (...a) => { const l = (process.argv.includes('--left') ? '[left] ' : '[top] ') + a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
+const log = (...a) => { const l = (process.argv.includes('--left') ? '[left' : '[top') + (process.argv.includes('--dashlane') ? '+dashlane] ' : '] ') + a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
 const LEFT = process.argv.includes('--left');
-app.setPath('userData', path.join(out, LEFT ? 'profile-left' : 'profile'));
+const DASH = process.argv.includes('--dashlane');
+app.setPath('userData', path.join(out, (LEFT ? 'profile-left' : 'profile') + (DASH ? '-dash' : '')));
 log('started', process.versions.electron);
 require('../../src/main.js');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const ps = (...args) => execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'input.ps1'), ...args.map(String)]);
 let shotN = 0;
-const shot = (name) => ps('shot', 0, 0, path.join(out, `${LEFT ? 'L' : 'T'}${String(++shotN).padStart(2, '0')}-${name}.png`));
+const shot = (name) => ps('shot', 0, 0, path.join(out, `${LEFT ? 'L' : 'T'}${DASH ? 'D' : ''}${String(++shotN).padStart(2, '0')}-${name}.png`));
 // window content point (DIP) -> physical screen pixels
 function toScreen(w, x, y) {
   const cb = w.win.getContentBounds();
@@ -50,6 +51,16 @@ app.whenReady().then(async () => {
       b.currentProfile().store.setSetting('tabsPosition', 'left');
       b.currentProfile().store.setSetting('restoreTabs', false);
       await wait(1500);
+    }
+    if (DASH) {
+      const { installExtension } = require('electron-chrome-web-store');
+      try {
+        const ext = await installExtension('fdjamakpfbbddfjaooikfcpapjohcfmg', { session: b.currentProfile().session, extensionsPath: b.currentProfile().extensionsPath });
+        log('installed', ext.name, ext.version);
+      } catch (e) {
+        log('install failed', e.message);
+      }
+      await wait(4000);
     }
     const tabView = () => (LEFT ? w.side : w.ui);
     const tabSel = LEFT ? '.vtab' : '.tab';

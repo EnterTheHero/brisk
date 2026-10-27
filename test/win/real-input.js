@@ -1,0 +1,104 @@
+// Windows-only: drives Brisk with REAL mouse and keyboard input (via input.ps1), the way a person would.
+const path = require('path');
+const fs = require('fs');
+const http = require('http');
+const { execFileSync } = require('child_process');
+const { app, screen } = require('electron');
+const out = process.argv.find((a) => a.startsWith('--out='))?.slice(6) || path.join(__dirname, 'out');
+fs.mkdirSync(out, { recursive: true });
+app.setPath('userData', path.join(out, 'profile'));
+require('../../src/main.js');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const log = (...a) => { const l = a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
+const ps = (...args) => execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'input.ps1'), ...args.map(String)]);
+let shotN = 0;
+const shot = (name) => ps('shot', 0, 0, path.join(out, `${String(++shotN).padStart(2, '0')}-${name}.png`));
+// window content point (DIP) -> physical screen pixels
+function toScreen(w, x, y) {
+  const cb = w.win.getContentBounds();
+  const p = screen.dipToScreenPoint({ x: cb.x + x, y: cb.y + y });
+  return [Math.round(p.x), Math.round(p.y)];
+}
+async function rectIn(wc, js) {
+  return wc.executeJavaScript(`(() => { const e = ${js}; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+}
+async function clickEl(w, view, js, button = 'lclick') {
+  const r = await rectIn(view.webContents, js);
+  if (!r) return false;
+  const vb = view.getBounds();
+  ps(button, ...toScreen(w, vb.x + r.x, vb.y + r.y));
+  return true;
+}
+const menuLabels = (w) => w.ui.webContents.executeJavaScript('[...document.querySelectorAll(".pm-item .pm-label")].map(e => e.textContent).join(" | ") || "NO MENU"');
+const findItem = (label) => `[...document.querySelectorAll('.pm-item')].filter(e => e.textContent.trim().startsWith(${JSON.stringify(label)})).pop()`;
+
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(req.url === '/' ? '<html><body style="margin:0;font:20px sans-serif"><a id="l" href="/other" style="display:block;margin:40px;width:300px;height:80px;font-size:40px">A link</a></body></html>' : '<html><body>other page</body></html>');
+}).listen(8767, '127.0.0.1');
+
+app.whenReady().then(async () => {
+  try {
+    await wait(4000);
+    const b = global.__brisk;
+    const w = b.currentWindow();
+    w.win.setBounds({ x: 40, y: 40, width: 1200, height: 800 });
+    w.win.focus();
+    log('scale', screen.getPrimaryDisplay().scaleFactor, 'content', JSON.stringify(w.win.getContentBounds()));
+    w.navigate('http://127.0.0.1:8767/');
+    await wait(2000);
+    shot('page');
+
+    // ---- A: right-click a link, choose Open Link in New Tab ----
+    let fired = false;
+    w.active.wc.once('context-menu', (_e, p) => { fired = true; log('A context-menu event, linkURL =', p.linkURL); });
+    const tb = w.active.view.getBounds();
+    ps('rclick', ...toScreen(w, tb.x + 100, tb.y + 80));
+    await wait(1200);
+    log('A event fired', fired, '| ui height', w.ui.getBounds().height, '| menu:', await menuLabels(w));
+    shot('A-after-rightclick');
+    const before = w.order.length;
+    const ok = await clickEl(w, w.ui, findItem('Open Link in New Tab'));
+    await wait(1500);
+    log('A clicked item', ok, '| tabs', before, '->', w.order.length, '| menu still open', await w.ui.webContents.executeJavaScript('!!document.querySelector(".pm")'));
+    shot('A-after-pick');
+
+    // ---- B: right-click a tab, Add Tab to New Group, type a name ----
+    await clickEl(w, w.ui, `document.querySelectorAll('.tab')[0]`); // activate first tab
+    await wait(500);
+    await clickEl(w, w.ui, `document.querySelectorAll('.tab')[0]`, 'rclick');
+    await wait(1000);
+    log('B tab menu:', await menuLabels(w));
+    shot('B-tab-menu');
+    await clickEl(w, w.ui, findItem('Add Tab to New Group'));
+    await wait(1200);
+    const ed = await w.ui.webContents.executeJavaScript('(() => { const e = document.querySelector(".group-editor"); return e ? "editor open, input focused=" + (document.activeElement === e.querySelector("input")) + ", doc focused=" + document.hasFocus() : "NO EDITOR"; })()');
+    log('B', ed, '| groups', w.groups.size, '| ui wc focused', w.ui.webContents.isFocused(), '| page wc focused', w.active.wc.isFocused());
+    shot('B-editor');
+    ps('type', 0, 0, 'Work');
+    await wait(500);
+    log('B after typing, group names:', [...w.groups.values()].map((g) => JSON.stringify(g.name)).join(','), '| address bar:', await w.ui.webContents.executeJavaScript('document.querySelector("#address").value'));
+    ps('type', 0, 0, '{ENTER}');
+    await wait(800);
+    log('B after Enter, group names:', [...w.groups.values()].map((g) => JSON.stringify(g.name)).join(','), '| editor still open', await w.ui.webContents.executeJavaScript('!!document.querySelector(".group-editor")'));
+    shot('B-after-enter');
+
+    // ---- C: right-click another tab, Add Tab to Group > Work ----
+    const lastTab = `[...document.querySelectorAll('.tab')].pop()`;
+    await clickEl(w, w.ui, lastTab, 'rclick');
+    await wait(1000);
+    log('C tab menu:', await menuLabels(w));
+    await clickEl(w, w.ui, findItem('Add Tab to Group'));
+    await wait(800);
+    log('C after opening submenu, panels:', await w.ui.webContents.executeJavaScript('document.querySelectorAll(".pm").length'), '| menu:', await menuLabels(w));
+    shot('C-submenu');
+    const sub = `[...document.querySelectorAll('.pm[data-level="1"] .pm-item')][0]`;
+    const ok2 = await clickEl(w, w.ui, sub);
+    await wait(1000);
+    log('C clicked group item', ok2, '| tabs per group:', [...w.groups.values()].map((g) => `${g.name}=${w._groupTabs(g.id).length}`).join(','));
+    shot('C-after');
+  } catch (e) {
+    log('ERROR', e.stack);
+  }
+  app.exit(0);
+});

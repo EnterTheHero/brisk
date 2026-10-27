@@ -17,13 +17,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force wout | Out-Null
-          $p = Start-Process -FilePath "node_modules\electron\dist\electron.exe" -ArgumentList "test/win/real-input.js","--out=wout" -PassThru -RedirectStandardOutput wout\stdout.txt -RedirectStandardError wout\stderr.txt
-          if (-not $p.WaitForExit(240000)) { $p.Kill(); "TIMEOUT" | Out-File -Append wout\result.txt }
-          Get-ChildItem wout
-          Get-Content wout\result.txt -ErrorAction SilentlyContinue
+        run: node test/win/run.js
+        continue-on-error: true
       - name: Publish results
         if: always()
         shell: bash

@@ -9,6 +9,8 @@ fs.mkdirSync(out, { recursive: true });
 const log = (...a) => { const l = (process.argv.includes('--left') ? '[left' : '[top') + (process.argv.includes('--dashlane') ? '+dashlane] ' : '] ') + a.join(' '); console.log(l); fs.appendFileSync(path.join(out, 'result.txt'), l + '\n'); };
 const LEFT = process.argv.includes('--left');
 const DASH = process.argv.includes('--dashlane');
+const SITE = (process.argv.find((a) => a.startsWith('--site=')) || '').slice(7);
+if (process.argv.includes('--scale15')) app.commandLine.appendSwitch('force-device-scale-factor', '1.5');
 app.setPath('userData', path.join(out, (LEFT ? 'profile-left' : 'profile') + (DASH ? '-dash' : '')));
 log('started', process.versions.electron);
 require('../../src/main.js');
@@ -65,15 +67,18 @@ app.whenReady().then(async () => {
     const tabView = () => (LEFT ? w.side : w.ui);
     const tabSel = LEFT ? '.vtab' : '.tab';
     log('scale', screen.getPrimaryDisplay().scaleFactor, 'content', JSON.stringify(w.win.getContentBounds()));
-    w.navigate('http://127.0.0.1:8767/');
-    await wait(2000);
+    w.navigate(SITE || 'http://127.0.0.1:8767/');
+    await wait(SITE ? 7000 : 2000);
     shot('page');
+    // where to right-click: the first visible link on the page
+    const linkPt = await w.active.wc.executeJavaScript(`(() => { for (const a of document.querySelectorAll('a[href]')) { const r = a.getBoundingClientRect(); if (r.width > 20 && r.height > 8 && r.top > 0 && r.top < innerHeight - 20 && r.left >= 0) return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2, href: a.href }; } return { x: 100, y: 80 }; })()`);
+    log('right-click target', JSON.stringify(linkPt));
 
     // ---- A: right-click a link, choose Open Link in New Tab ----
     let fired = false;
     w.active.wc.once('context-menu', (_e, p) => { fired = true; log('A context-menu event, linkURL =', p.linkURL); });
     const tb = w.active.view.getBounds();
-    ps('rclick', ...toScreen(w, tb.x + 100, tb.y + 80));
+    ps('rclick', ...toScreen(w, tb.x + linkPt.x, tb.y + linkPt.y));
     await wait(1200);
     log('A event fired', fired, '| ui height', w.ui.getBounds().height, '| menu:', await menuLabels(w));
     shot('A-after-rightclick');

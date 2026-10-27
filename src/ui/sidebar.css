@@ -163,3 +163,67 @@ body.narrow #side-new {
 body.resizing #grip {
   background: color-mix(in srgb, var(--accent) 40%, transparent);
 }
+
+/* tab groups */
+.vgroup {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 6px 0 8px;
+  margin-top: 4px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--group);
+  cursor: default;
+}
+.vgroup:hover {
+  background: var(--hover);
+}
+.vgroup .gdot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--group);
+  flex: none;
+}
+.vgroup .gname {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vgroup .gcaret svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+  transition: transform 0.15s;
+}
+.vgroup.collapsed .gcaret svg {
+  transform: rotate(-90deg);
+}
+.vtab.grouped {
+  margin-left: 6px;
+  box-shadow: inset 2px 0 0 var(--group);
+  border-radius: 0 7px 7px 0;
+}
+.vtab.grouped.active {
+  box-shadow: inset 2px 0 0 var(--group), 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 0 0 1px var(--line);
+}
+.vtab[hidden] {
+  display: none;
+}
+body.narrow .vgroup {
+  justify-content: center;
+  padding: 0;
+}
+body.narrow .vgroup .gname,
+body.narrow .vgroup .gcaret {
+  display: none;
+}
+body.narrow .vtab.grouped {
+  margin-left: 0;
+}

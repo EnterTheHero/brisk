@@ -16,6 +16,20 @@ const ZOOM_STEPS = [-3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3];
 const HTTPS_FAIL_CODES = new Set([-100, -101, -102, -105, -106, -107, -109, -118, -200, -201, -202, -203, -207, -310, -324]);
 
 let nextTabId = 1;
+let nextGroupId = 1;
+// Tab group colors (same set as Chrome so they feel familiar).
+const GROUP_COLORS = {
+  grey: '#5f6368',
+  blue: '#1a73e8',
+  red: '#d93025',
+  yellow: '#e8a600',
+  green: '#188038',
+  pink: '#d01884',
+  purple: '#a142f4',
+  cyan: '#007b83',
+  orange: '#e8710a',
+};
+const GROUP_COLOR_NAMES = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange', 'grey']; // order new groups pick from
 const SIDE_MIN = 44; // icons only
 const SIDE_MAX = 420;
 
@@ -37,13 +51,14 @@ function findNode(nodes, id) {
 }
 
 class BrowserWin {
-  constructor(app, { profile, isPrivate = false, ses, urls = [], activeIndex = 0, bounds } = {}) {
+  constructor(app, { profile, isPrivate = false, ses, urls = [], activeIndex = 0, bounds, groups = [], tabGroups = [] } = {}) {
     this.app = app; // the BriskApp controller (shields, windows, downloads)
     this.profile = profile; // whose bookmarks, settings, extensions and cookies this window uses
     this.isPrivate = isPrivate;
     this.ses = ses;
     this.tabs = new Map();
     this.order = [];
+    this.groups = new Map(); // id -> { id, name, color, collapsed }
     this.activeId = null;
     this.closedTabs = [];
     this.chromeHeight = 108;
@@ -113,7 +128,15 @@ class BrowserWin {
     });
 
     const list = urls.length ? urls : [this.profile.store.get('homepage') || NEW_TAB];
-    list.forEach((u, i) => this.createTab(u, { background: i !== Math.min(activeIndex, list.length - 1) }));
+    // Restored tab groups: tabGroups[i] is the index into `groups` for tab i (or null).
+    this._restoring = true;
+    const restored = (Array.isArray(groups) ? groups : []).map((g) => this._makeGroup(g));
+    list.forEach((u, i) => {
+      const g = urls.length && Number.isInteger(tabGroups[i]) ? restored[tabGroups[i]] : null;
+      this.createTab(u, { background: i !== Math.min(activeIndex, list.length - 1), group: g ? g.id : undefined });
+    });
+    for (const g of restored) if (!this._groupTabs(g.id).length) this.groups.delete(g.id);
+    this._restoring = false;
     this.layout();
   }
 
@@ -199,7 +222,7 @@ class BrowserWin {
   }
 
   // ------------------------------------------------------------------ tabs
-  createTab(url = NEW_TAB, { background = false, index } = {}) {
+  createTab(url = NEW_TAB, { background = false, index, group } = {}) {
     const id = nextTabId++;
     const view = new WebContentsView({
       webPreferences: {
@@ -212,10 +235,19 @@ class BrowserWin {
       },
     });
     view.setBackgroundColor('#ffffff');
-    const tab = { id, view, wc: view.webContents, title: 'New Tab', url, favicon: '', loading: false, crashed: false };
+    const tab = { id, view, wc: view.webContents, title: 'New Tab', url, favicon: '', loading: false, crashed: false, groupId: null };
     this.tabs.set(id, tab);
-    if (typeof index === 'number') this.order.splice(index, 0, id);
-    else this.order.push(id);
+    if (typeof index === 'number') {
+      // A tab placed inside a group (between two of its tabs) joins it.
+      const left = this.tabs.get(this.order[index - 1]);
+      const right = this.tabs.get(this.order[index]);
+      if (group === undefined && left && right && left.groupId && left.groupId === right.groupId) group = left.groupId;
+      this.order.splice(index, 0, id);
+    } else this.order.push(id);
+    if (group && this.groups.has(group)) {
+      tab.groupId = group;
+      this._tidyGroups();
+    }
 
     this.win.contentView.addChildView(view);
     view.setVisible(false);
@@ -332,7 +364,7 @@ class BrowserWin {
         };
       }
       const idx = this.order.indexOf(tab.id) + 1;
-      this.createTab(url, { background: disposition === 'background-tab', index: idx });
+      this.createTab(url, { background: disposition === 'background-tab', index: idx, group: tab.groupId || undefined });
       return { action: 'deny' };
     });
 
@@ -341,6 +373,8 @@ class BrowserWin {
 
   activate(id) {
     if (!this.tabs.has(id)) return;
+    const g = this.groups.get(this.tabs.get(id).groupId);
+    if (g && g.collapsed) g.collapsed = false; // switching to a tab in a collapsed group opens the group
     this.activeId = id;
     this.layout();
     const tab = this.tabs.get(id);
@@ -356,11 +390,12 @@ class BrowserWin {
     if (!tab) return;
     const idx = this.order.indexOf(id);
     if (!this.isPrivate && !tab.url.startsWith(NEW_TAB)) {
-      this.closedTabs.push({ url: tab.url, index: idx });
+      this.closedTabs.push({ url: tab.url, index: idx, group: tab.groupId || undefined });
       if (this.closedTabs.length > 25) this.closedTabs.shift();
     }
     this.order.splice(idx, 1);
     this.tabs.delete(id);
+    if (tab.groupId && !this._groupTabs(tab.groupId).length) this.groups.delete(tab.groupId);
     this.win.contentView.removeChildView(tab.view);
     if (!this.isPrivate) this.profile.extensions.removeTab(tab.wc);
     this.app.shields.forget(tab.wc.id);
@@ -370,21 +405,164 @@ class BrowserWin {
       this.win.close();
       return;
     }
-    if (this.activeId === id) this.activate(this.order[Math.min(idx, this.order.length - 1)]);
+    if (this.activeId === id) {
+      const near = Math.min(idx, this.order.length - 1);
+      this.activate(this._visibleNear(near) ?? this.order[near]);
+    }
     else this.pushState();
   }
 
   reopenClosedTab() {
     const last = this.closedTabs.pop();
-    if (last) this.createTab(last.url, { index: Math.min(last.index, this.order.length) });
+    if (last) this.createTab(last.url, { index: Math.min(last.index, this.order.length), group: last.group });
   }
 
   moveTab(id, toIndex) {
     const from = this.order.indexOf(id);
     if (from < 0) return;
+    const tab = this.tabs.get(id);
     this.order.splice(from, 1);
-    this.order.splice(Math.max(0, Math.min(toIndex, this.order.length)), 0, id);
+    const at = Math.max(0, Math.min(toIndex, this.order.length));
+    this.order.splice(at, 0, id);
+    // Dragging into the middle of a group joins it; dragging away from your own group leaves it.
+    const left = this.tabs.get(this.order[at - 1]);
+    const right = this.tabs.get(this.order[at + 1]);
+    if (left && right && left.groupId && left.groupId === right.groupId) tab.groupId = left.groupId;
+    else if (tab.groupId && !(left && left.groupId === tab.groupId) && !(right && right.groupId === tab.groupId)) {
+      const others = this._groupTabs(tab.groupId).filter((t) => t !== tab);
+      if (others.length) tab.groupId = null;
+    }
+    this._tidyGroups();
     this.pushState();
+  }
+
+  // ------------------------------------------------------------ tab groups
+  _makeGroup({ name = '', color } = {}) {
+    const used = new Set([...this.groups.values()].map((g) => g.color));
+    const id = `g${nextGroupId++}`;
+    const g = {
+      id,
+      name: String(name || '').slice(0, 40),
+      color: GROUP_COLORS[color] ? color : GROUP_COLOR_NAMES.find((c) => !used.has(c)) || 'grey',
+      collapsed: false,
+    };
+    this.groups.set(id, g);
+    return g;
+  }
+
+  _groupTabs(groupId) {
+    return this.order.map((x) => this.tabs.get(x)).filter((t) => t && t.groupId === groupId);
+  }
+
+  // Keep each group's tabs side by side (at its first tab's spot) and drop empty groups.
+  _tidyGroups() {
+    const placed = new Set();
+    const out = [];
+    for (const id of this.order) {
+      const t = this.tabs.get(id);
+      if (!t.groupId) out.push(id);
+      else if (!placed.has(t.groupId)) {
+        placed.add(t.groupId);
+        out.push(...this.order.filter((x) => this.tabs.get(x).groupId === t.groupId));
+      }
+    }
+    this.order = out;
+    if (!this._restoring) for (const gid of [...this.groups.keys()]) if (!placed.has(gid)) this.groups.delete(gid);
+  }
+
+  // The nearest tab that isn't hidden inside a collapsed group.
+  _visibleNear(idx) {
+    const visible = (id) => {
+      const g = this.groups.get(this.tabs.get(id).groupId);
+      return !g || !g.collapsed;
+    };
+    for (let d = 0; d < this.order.length; d++) {
+      for (const i of [idx + d, idx - d]) if (this.order[i] != null && visible(this.order[i])) return this.order[i];
+    }
+    return null;
+  }
+
+  addTabsToGroup(ids, groupId) {
+    let g = groupId && this.groups.get(groupId);
+    const fresh = !g;
+    if (!g) g = this._makeGroup();
+    // A new group starts where the first of its tabs is.
+    for (const id of ids) {
+      const t = this.tabs.get(id);
+      if (t) t.groupId = g.id;
+    }
+    if (!fresh) {
+      // Joining an existing group: line the tabs up at the end of the group.
+      const rest = this.order.filter((x) => !ids.includes(x));
+      const lastIdx = Math.max(...rest.map((x, i) => (this.tabs.get(x).groupId === g.id ? i : -1)));
+      rest.splice(lastIdx + 1, 0, ...ids.filter((x) => this.tabs.has(x)));
+      this.order = rest;
+    }
+    g.collapsed = false;
+    this._tidyGroups();
+    this.pushState();
+    if (fresh) this.editGroup(g.id); // let them name it right away
+    return g;
+  }
+
+  removeFromGroup(id) {
+    const t = this.tabs.get(id);
+    if (!t || !t.groupId) return;
+    const members = this._groupTabs(t.groupId);
+    const end = this.order.indexOf(members[members.length - 1].id);
+    t.groupId = null;
+    // Step out to just after the group so the rest stays together.
+    this.order.splice(this.order.indexOf(id), 1);
+    this.order.splice(Math.min(end, this.order.length), 0, id);
+    this._tidyGroups();
+    this.pushState();
+  }
+
+  updateGroup(groupId, fields = {}) {
+    const g = this.groups.get(groupId);
+    if (!g) return;
+    if (typeof fields.name === 'string') g.name = fields.name.trim().slice(0, 40);
+    if (GROUP_COLORS[fields.color]) g.color = fields.color;
+    this.pushState();
+  }
+
+  toggleGroup(groupId, collapsed) {
+    const g = this.groups.get(groupId);
+    if (!g) return;
+    g.collapsed = typeof collapsed === 'boolean' ? collapsed : !g.collapsed;
+    const active = this.active;
+    if (g.collapsed && active && active.groupId === groupId) {
+      // Like Chrome: move to a tab outside the group, or open a new one.
+      const next = this._visibleNear(this.order.indexOf(active.id));
+      if (next != null) this.activate(next);
+      else this.createTab(NEW_TAB);
+    }
+    this.pushState();
+  }
+
+  ungroup(groupId) {
+    for (const t of this._groupTabs(groupId)) t.groupId = null;
+    this.groups.delete(groupId);
+    this.pushState();
+  }
+
+  closeGroup(groupId) {
+    const ids = this._groupTabs(groupId).map((t) => t.id);
+    if (ids.length === this.order.length) this.createTab(NEW_TAB); // keep the window open
+    ids.forEach((id) => this.closeTab(id));
+  }
+
+  newTabInGroup(groupId) {
+    const members = this._groupTabs(groupId);
+    if (!members.length) return;
+    this.createTab(NEW_TAB, { index: this.order.indexOf(members[members.length - 1].id) + 1, group: groupId });
+  }
+
+  // Opens the name/color editor for a group (drawn by the toolbar UI).
+  editGroup(groupId, anchor) {
+    if (!this.groups.has(groupId)) return;
+    this._sendState(); // the editor needs the group in its state first
+    this.ui.webContents.send('group:edit', { id: groupId, anchor: anchor || null });
   }
 
   cycleTab(delta) {
@@ -645,6 +823,7 @@ class BrowserWin {
         secure: url.startsWith('https://') || (url.startsWith('brisk://') && !url.startsWith('brisk://error')),
         web: /^https?:/.test(url),
         shieldsOff: store.shieldsOffFor(hostOf(url)),
+        groupId: t.groupId || null,
       };
     });
     const settings = store.getSettings();
@@ -657,6 +836,8 @@ class BrowserWin {
       tabsLeft,
       sidebarWidth: this.sidebarWidth(),
       tabs,
+      groups: [...this.groups.values()].map((g) => ({ ...g, hex: GROUP_COLORS[g.color] })),
+      groupColors: GROUP_COLORS,
       activeId: this.activeId,
       activeWcId: this.active && !this.active.wc.isDestroyed() ? this.active.wc.id : -1,
       isPrivate: this.isPrivate,
@@ -690,6 +871,11 @@ class BrowserWin {
     const realUrl = (u) => (u && u.startsWith('brisk://error') ? displayUrl(u) || NEW_TAB : u || NEW_TAB);
     return {
       urls: this.order.map((id) => realUrl(this.tabs.get(id).url)),
+      groups: [...this.groups.values()].map((g) => ({ name: g.name, color: g.color, id: g.id })),
+      tabGroups: this.order.map((id) => {
+        const gid = this.tabs.get(id).groupId;
+        return gid ? [...this.groups.keys()].indexOf(gid) : null;
+      }),
       activeIndex: Math.max(0, this.order.indexOf(this.activeId)),
       bounds: this.win.getNormalBounds(),
     };
@@ -703,10 +889,26 @@ class BrowserWin {
   showTabMenu(id) {
     const t = this.tabs.get(id);
     if (!t) return;
+    const dot = (g) => ({ color: GROUP_COLORS[g.color], letter: '' });
+    const others = [...this.groups.values()].filter((g) => g.id !== t.groupId);
+    const groupItems = [
+      { label: 'Add Tab to New Group', click: () => this.addTabsToGroup([id]) },
+      ...(others.length
+        ? [
+            {
+              label: 'Add Tab to Group',
+              submenu: others.map((g) => ({ label: g.name || 'Unnamed group', avatar: dot(g), click: () => this.addTabsToGroup([id], g.id) })),
+            },
+          ]
+        : []),
+      ...(t.groupId ? [{ label: 'Remove from Group', click: () => this.removeFromGroup(id) }] : []),
+    ];
     this._popup([
-      { label: 'New Tab to the Right', click: () => this.createTab(NEW_TAB, { index: this.order.indexOf(id) + 1 }) },
+      { label: 'New Tab to the Right', click: () => this.createTab(NEW_TAB, { index: this.order.indexOf(id) + 1, group: t.groupId || undefined }) },
+      ...groupItems,
+      { type: 'separator' },
       { label: 'Reload', click: () => t.wc.reload() },
-      { label: 'Duplicate', click: () => this.createTab(t.url, { index: this.order.indexOf(id) + 1 }) },
+      { label: 'Duplicate', click: () => this.createTab(t.url, { index: this.order.indexOf(id) + 1, group: t.groupId || undefined }) },
       { label: t.wc.isAudioMuted() ? 'Unmute Site' : 'Mute Site', click: () => this.toggleMute(id) },
       { type: 'separator' },
       { label: 'Close Tab', click: () => this.closeTab(id) },
@@ -810,7 +1012,7 @@ class BrowserWin {
 
     if (params.linkURL) {
       items.push(
-        { label: 'Open Link in New Tab', click: () => this.createTab(params.linkURL, { background: true, index: idx }) },
+        { label: 'Open Link in New Tab', click: () => this.createTab(params.linkURL, { background: true, index: idx, group: tab.groupId || undefined }) },
         { label: 'Open Link in New Window', click: () => this.app.newWindow({ urls: [params.linkURL], profile: this.profile }) },
         { label: 'Open Link in Private Window', click: () => this.app.newWindow({ urls: [params.linkURL], isPrivate: true, profile: this.profile }) },
         { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) },
@@ -819,7 +1021,7 @@ class BrowserWin {
     }
     if (params.mediaType === 'image' && params.srcURL) {
       items.push(
-        { label: 'Open Image in New Tab', click: () => this.createTab(params.srcURL, { background: true, index: idx }) },
+        { label: 'Open Image in New Tab', click: () => this.createTab(params.srcURL, { background: true, index: idx, group: tab.groupId || undefined }) },
         { label: 'Save Image As…', click: () => wc.downloadURL(params.srcURL) },
         { label: 'Copy Image', click: () => wc.copyImageAt(params.x, params.y) },
         { label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) },
@@ -842,7 +1044,7 @@ class BrowserWin {
       const short = sel.length > 24 ? `${sel.slice(0, 24)}…` : sel;
       items.push(
         { label: 'Copy', click: () => wc.copy() },
-        { label: `Search for “${short}”`, click: () => this.createTab(this.profile.store.searchUrl(sel), { index: idx }) },
+        { label: `Search for “${short}”`, click: () => this.createTab(this.profile.store.searchUrl(sel), { index: idx, group: tab.groupId || undefined }) },
         { type: 'separator' }
       );
     }
@@ -853,7 +1055,7 @@ class BrowserWin {
         { label: 'Reload', click: () => wc.reload() },
         { type: 'separator' },
         { label: 'Save Page As…', click: () => wc.downloadURL(wc.getURL()) },
-        { label: 'View Page Source', click: () => this.createTab(`view-source:${wc.getURL()}`, { index: idx }) },
+        { label: 'View Page Source', click: () => this.createTab(`view-source:${wc.getURL()}`, { index: idx, group: tab.groupId || undefined }) },
         { type: 'separator' }
       );
     }

@@ -221,10 +221,10 @@ class BriskApp {
   }
 
   // ---- windows ----
-  newWindow({ urls, isPrivate = false, activeIndex, bounds, profile } = {}) {
+  newWindow({ urls, isPrivate = false, activeIndex, bounds, profile, groups, tabGroups } = {}) {
     profile = profile || this.currentProfile();
     const ses = isPrivate ? this.newPrivateSession(profile) : profile.session;
-    const w = new BrowserWin(this, { profile, isPrivate, ses, urls, activeIndex, bounds });
+    const w = new BrowserWin(this, { profile, isPrivate, ses, urls, activeIndex, bounds, groups, tabGroups });
     this.windows.set(w.id, w);
     this.lastFocused = w;
     if (!isPrivate) this.profiles.setLastUsed(profile.id);
@@ -254,7 +254,7 @@ class BriskApp {
     if (saved.length) {
       let first = null;
       for (const s of saved) {
-        const w = this.newWindow({ urls: s.urls, activeIndex: s.activeIndex, bounds: s.bounds, profile });
+        const w = this.newWindow({ urls: s.urls, activeIndex: s.activeIndex, bounds: s.bounds, profile, groups: s.groups, tabGroups: s.tabGroups });
         first = first || w;
       }
       return first;
@@ -631,6 +631,15 @@ function registerIpc(brisk) {
   ui('tab:activate', (w, id) => w.activate(id));
   ui('tab:move', (w, id, idx) => w.moveTab(id, idx));
   ui('tab:mute', (w, id) => w.toggleMute(id));
+  ui('group:toggle', (w, id) => w.toggleGroup(String(id)));
+  ui('group:update', (w, id, fields) => w.updateGroup(String(id), fields || {}));
+  ui('group:ungroup', (w, id) => w.ungroup(String(id)));
+  ui('group:close', (w, id) => w.closeGroup(String(id)));
+  ui('group:newTab', (w, id) => w.newTabInGroup(String(id)));
+  ui('group:edit', (w, id, anchor, fromSide) => {
+    const a = anchor && fromSide ? { x: anchor.x, y: anchor.y + w.chromeHeight } : anchor;
+    w.editGroup(String(id), a);
+  });
   ui('nav:go', (w, input) => w.navigate(input));
   ui('nav:back', (w) => w.goBack());
   ui('nav:forward', (w) => w.goForward());

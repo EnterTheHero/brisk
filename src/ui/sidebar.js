@@ -23,8 +23,24 @@ function render() {
   document.body.classList.toggle('narrow', (state.sidebarWidth || 110) < 76);
   if (state.profile) document.documentElement.style.setProperty('--profile', state.profile.color);
   const box = $('#vtabs');
-  const existing = new Map([...box.children].map((el) => [Number(el.dataset.id), el]));
-  state.tabs.forEach((t, i) => {
+  const existing = new Map([...box.children].map((el) => [el.dataset.group ? `g:${el.dataset.group}` : Number(el.dataset.id), el]));
+  const groups = new Map((state.groups || []).map((g) => [g.id, g]));
+  const seq = [];
+  let prevGroup = null;
+  state.tabs.forEach((t) => {
+    const g = groups.get(t.groupId);
+    if (g && g.id !== prevGroup) {
+      let head = existing.get(`g:${g.id}`);
+      if (!head) head = groupHead(g.id);
+      existing.delete(`g:${g.id}`);
+      head.style.setProperty('--group', g.hex);
+      head.classList.toggle('collapsed', !!g.collapsed);
+      const count = state.tabs.filter((x) => x.groupId === g.id).length;
+      head.querySelector('.gname').textContent = g.name || `${count} tab${count === 1 ? '' : 's'}`;
+      head.title = `${g.name || 'Unnamed group'}\nClick to ${g.collapsed ? 'expand' : 'collapse'}, right-click to edit`;
+      seq.push(head);
+    }
+    prevGroup = g ? g.id : null;
     let el = existing.get(t.id);
     if (!el) {
       el = document.createElement('div');
@@ -35,7 +51,11 @@ function render() {
       wire(el, t.id);
     }
     existing.delete(t.id);
-    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    seq.push(el);
+    el.classList.toggle('grouped', !!g);
+    el.hidden = !!(g && g.collapsed);
+    if (g) el.style.setProperty('--group', g.hex);
+    else el.style.removeProperty('--group');
     el.classList.toggle('active', t.id === state.activeId);
     el.title = `${t.title}\n${t.display || ''}`.trim();
     el.querySelector('.title').textContent = t.title || 'New Tab';
@@ -53,12 +73,27 @@ function render() {
     audio.hidden = !(t.audible || t.muted);
     if (!audio.hidden) audio.innerHTML = t.muted ? ICON.muted : ICON.sound;
   });
+  seq.forEach((el, i) => box.children[i] !== el && box.insertBefore(el, box.children[i] || null));
   for (const el of existing.values()) el.remove();
   const active = box.querySelector('.vtab.active');
   if (active && state.activeId !== render.lastActive) {
     render.lastActive = state.activeId;
     active.scrollIntoView({ block: 'nearest' });
   }
+}
+
+function groupHead(id) {
+  const el = document.createElement('div');
+  el.className = 'vgroup';
+  el.dataset.group = id;
+  el.innerHTML = '<span class="gdot"></span><span class="gname"></span><span class="gcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
+  el.addEventListener('click', () => brisk.toggleGroup(id));
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    brisk.editGroup(id, { x: r.left + 4, y: r.bottom + 4 }, true);
+  });
+  return el;
 }
 
 let dragId = null;

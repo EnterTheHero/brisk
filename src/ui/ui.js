@@ -104,13 +104,46 @@ function renderProfile() {
   else av.textContent = (p.name || '?').trim().charAt(0).toUpperCase();
 }
 
+function groupChip(g) {
+  const el = document.createElement('div');
+  el.className = 'group-chip';
+  el.dataset.group = g.id;
+  el.addEventListener('click', () => brisk.toggleGroup(g.id));
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    brisk.editGroup(g.id, { x: r.left, y: r.bottom + 4 });
+  });
+  el.addEventListener('auxclick', (e) => e.button === 1 && e.preventDefault());
+  return el;
+}
+
 function renderTabs() {
   const box = $('#tabs');
-  const existing = new Map([...box.children].map((el) => [Number(el.dataset.id), el]));
+  const existing = new Map([...box.children].map((el) => [el.dataset.group ? `g:${el.dataset.group}` : Number(el.dataset.id), el]));
+  const groups = new Map((state.groups || []).map((g) => [g.id, g]));
   const width = box.parentElement.clientWidth - 140;
-  const narrow = state.tabs.length * 92 > width;
+  const visibleCount = state.tabs.filter((t) => !(groups.get(t.groupId) || {}).collapsed).length;
+  const narrow = visibleCount * 92 + groups.size * 40 > width;
+  const seq = [];
+  let prevGroup = null;
 
-  state.tabs.forEach((t, i) => {
+  state.tabs.forEach((t) => {
+    const g = groups.get(t.groupId);
+    if (g && g.id !== prevGroup) {
+      let chip = existing.get(`g:${g.id}`);
+      if (!chip) chip = groupChip(g);
+      existing.delete(`g:${g.id}`);
+      chip.style.setProperty('--group', g.hex);
+      chip.classList.toggle('collapsed', !!g.collapsed);
+      chip.classList.toggle('unnamed', !g.name);
+      chip.textContent = g.name || '';
+      const count = state.tabs.filter((x) => x.groupId === g.id).length;
+      chip.title = `${g.name || 'Unnamed group'} — ${count} tab${count === 1 ? '' : 's'}\nClick to ${g.collapsed ? 'expand' : 'collapse'}, right-click to edit`;
+      seq.push(chip);
+    }
+    prevGroup = g ? g.id : null;
+
     let el = existing.get(t.id);
     if (!el) {
       el = document.createElement('div');
@@ -121,10 +154,14 @@ function renderTabs() {
       wireTab(el, t.id);
     }
     existing.delete(t.id);
-    if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    seq.push(el);
 
     el.classList.toggle('active', t.id === state.activeId);
     el.classList.toggle('narrow', narrow);
+    el.classList.toggle('grouped', !!g);
+    el.classList.toggle('hidden-in-group', !!(g && g.collapsed));
+    if (g) el.style.setProperty('--group', g.hex);
+    else el.style.removeProperty('--group');
     el.title = t.title;
     el.querySelector('.title').textContent = t.title || 'New Tab';
 
@@ -151,6 +188,7 @@ function renderTabs() {
       }
     }
   });
+  seq.forEach((el, i) => box.children[i] !== el && box.insertBefore(el, box.children[i] || null));
   for (const el of existing.values()) el.remove();
 }
 
@@ -476,7 +514,7 @@ $('#forward').addEventListener('click', () => brisk.forward());
 $('#reload').addEventListener('click', (e) => (activeTab()?.loading ? brisk.stop() : brisk.reload(e.shiftKey)));
 $('#new-tab').addEventListener('click', () => brisk.newTab());
 $('#star').addEventListener('click', () => brisk.toggleBookmark(anchorOf($('#star'))));
-$('#profile').addEventListener('click', () => brisk.profileMenu(anchorRight($('#profile'))));
+$('#profile').addEventListener('click', () => brisk.profileMenu(anchorOf($('#profile'))));
 $('#shields').addEventListener('click', () => brisk.shieldsMenu(anchorRight($('#shields'))));
 $('#menu').addEventListener('click', () => brisk.mainMenu(anchorRight($('#menu'))));
 $('#downloads').addEventListener('click', () => {
@@ -661,3 +699,78 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && menuOpen) closeMenu();
 });
 window.addEventListener('blur', () => menuOpen && closeMenu());
+
+
+// ---------- tab group editor (name, color, actions) ----------
+let groupEditId = null;
+function closeGroupEditor() {
+  const ed = document.querySelector('.group-editor');
+  if (!ed) return;
+  const input = ed.querySelector('input');
+  if (groupEditId && input) brisk.updateGroup(groupEditId, { name: input.value });
+  ed.remove();
+  groupEditId = null;
+  if (!menuOpen && suggBox.hidden) setOverlay(false);
+}
+
+function openGroupEditor(id, anchor) {
+  closeMenu(true);
+  closeGroupEditor();
+  const g = (state.groups || []).find((x) => x.id === id);
+  if (!g) return;
+  if (!anchor) {
+    const chip = document.querySelector(`.group-chip[data-group="${id}"]`);
+    const r = chip ? chip.getBoundingClientRect() : { left: 80, bottom: 40 };
+    anchor = { x: r.left, y: r.bottom + 4 };
+  }
+  groupEditId = id;
+  setOverlay(true);
+  const ed = document.createElement('div');
+  ed.className = 'group-editor pm';
+  const colors = state.groupColors || {};
+  ed.innerHTML = `<input type="text" maxlength="40" placeholder="Name this group" spellcheck="false">
+    <div class="ge-colors">${Object.entries(colors)
+      .map(([name, hex]) => `<button class="ge-color${name === g.color ? ' on' : ''}" data-color="${name}" title="${name}" style="--c:${hex}"></button>`)
+      .join('')}</div>
+    <div class="pm-sep"></div>
+    <div class="pm-item" data-act="new"><span class="pm-label">New tab in group</span></div>
+    <div class="pm-item" data-act="ungroup"><span class="pm-label">Ungroup</span></div>
+    <div class="pm-item" data-act="close"><span class="pm-label">Close group</span></div>`;
+  const input = ed.querySelector('input');
+  input.value = g.name || '';
+  input.addEventListener('input', () => brisk.updateGroup(id, { name: input.value }));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'Escape') closeGroupEditor();
+  });
+  ed.querySelector('.ge-colors').addEventListener('click', (e) => {
+    const c = e.target.dataset && e.target.dataset.color;
+    if (!c) return;
+    ed.querySelectorAll('.ge-color').forEach((b) => b.classList.toggle('on', b.dataset.color === c));
+    brisk.updateGroup(id, { color: c });
+  });
+  ed.querySelectorAll('[data-act]').forEach((el) =>
+    el.addEventListener('click', () => {
+      const act = el.dataset.act;
+      groupEditId = null; // don't re-save the name after the group is gone
+      brisk.updateGroup(id, { name: input.value });
+      ed.remove();
+      setOverlay(false);
+      if (act === 'new') brisk.newTabInGroup(id);
+      if (act === 'ungroup') brisk.ungroup(id);
+      if (act === 'close') brisk.closeGroup(id);
+    })
+  );
+  document.body.appendChild(ed);
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      const r = ed.getBoundingClientRect();
+      ed.style.left = `${Math.max(6, Math.min(anchor.x, window.innerWidth - r.width - 6))}px`;
+      ed.style.top = `${Math.max(6, Math.min(anchor.y, window.innerHeight - r.height - 8))}px`;
+      input.focus();
+      input.select();
+    })
+  );
+}
+brisk.onGroupEdit(({ id, anchor }) => openGroupEditor(id, anchor));
+$('#scrim').addEventListener('mousedown', () => closeGroupEditor());
+window.addEventListener('keydown', (e) => e.key === 'Escape' && closeGroupEditor());

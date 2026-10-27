@@ -4,7 +4,7 @@ const fs = require('fs');
 const http = require('http');
 const { execFileSync } = require('child_process');
 const { app, screen } = require('electron');
-const out = process.argv.find((a) => a.startsWith('--out='))?.slice(6) || path.join(__dirname, 'out');
+const out = path.resolve(process.argv.find((a) => a.startsWith('--out='))?.slice(6) || path.join(__dirname, 'out'));
 fs.mkdirSync(out, { recursive: true });
 app.setPath('userData', path.join(out, 'profile'));
 require('../../src/main.js');

@@ -83,9 +83,10 @@ app.whenReady().then(async () => {
     log('A event fired', fired, '| ui height', w.ui.getBounds().height, '| menu:', await menuLabels(w));
     shot('A-after-rightclick');
     const before = w.order.length;
+    const activeBefore = w.activeId;
     const ok = await clickEl(w, w.ui, findItem('Open Link in New Tab'));
     await wait(1500);
-    log('A clicked item', ok, '| tabs', before, '->', w.order.length, '| menu still open', await w.ui.webContents.executeJavaScript('!!document.querySelector(".pm")'));
+    log('A clicked item', ok, '| stayed on original tab', w.activeId === activeBefore, '| tabs', before, '->', w.order.length, '| menu still open', await w.ui.webContents.executeJavaScript('!!document.querySelector(".pm")'));
     shot('A-after-pick');
 
     // ---- B: right-click a tab, Add Tab to New Group, type a name ----

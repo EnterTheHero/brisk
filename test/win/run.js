@@ -16,4 +16,4 @@ function run(extra) {
     p.on('exit', (code, sig) => { clearTimeout(kill); fs.appendFileSync(logf, `\nexit ${code} ${sig}\n`); done(); });
   });
 }
-(async () => { await run(['--left', '--scale15']); await run(['--left', '--site=https://www.comicbastards.com/']); })();
+(async () => { await run(['--left', '--dashlane']); await run([]); })();

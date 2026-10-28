@@ -250,7 +250,18 @@ class BriskApp {
       existing.win.focus();
       return existing;
     }
-    const saved = profile.store.get('restoreTabs') ? profile.store.loadSession() : [];
+    let saved = profile.store.loadSession().filter((x) => x && Array.isArray(x.urls) && x.urls.length);
+    if (!profile.store.get('restoreTabs')) {
+      // "Restore tabs" is off, but tab groups are kept (like Chrome's saved groups): bring back just the grouped tabs.
+      const home = profile.store.get('homepage') || 'brisk://newtab';
+      saved = saved
+        .map((x) => {
+          const keep = x.urls.map((_, i) => i).filter((i) => Number.isInteger((x.tabGroups || [])[i]));
+          if (!keep.length) return null;
+          return { ...x, urls: [home, ...keep.map((i) => x.urls[i])], tabGroups: [null, ...keep.map((i) => x.tabGroups[i])], activeIndex: 0 };
+        })
+        .filter(Boolean);
+    }
     if (saved.length) {
       let first = null;
       for (const s of saved) {
@@ -629,7 +640,7 @@ function registerIpc(brisk) {
   ui('tab:new', (w, url) => w.createTab(url || NEW_TAB));
   ui('tab:close', (w, id) => w.closeTab(id));
   ui('tab:activate', (w, id) => w.activate(id));
-  ui('tab:move', (w, id, idx) => w.moveTab(id, idx));
+  ui('tab:move', (w, id, idx, group) => w.moveTab(id, idx, group === undefined ? undefined : group ? String(group) : null));
   ui('tab:mute', (w, id) => w.toggleMute(id));
   ui('group:toggle', (w, id) => w.toggleGroup(String(id)));
   ui('group:update', (w, id, fields) => w.updateGroup(String(id), fields || {}));

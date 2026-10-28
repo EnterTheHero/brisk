@@ -41,7 +41,7 @@ class Extensions {
       },
       selectTab: (wc) => {
         const found = this._findTab(wc);
-        if (found) found.w.activate(found.tab.id);
+        if (found && found.w._ignoreExtSelect !== found.tab.id) found.w.activate(found.tab.id);
       },
       removeTab: (wc) => {
         const found = this._findTab(wc);

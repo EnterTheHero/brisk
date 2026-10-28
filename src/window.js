@@ -253,11 +253,32 @@ class BrowserWin {
     view.setVisible(false);
     this._raiseUi();
     this._wireTab(tab);
-    if (!this.isPrivate) this.profile.extensions.addTab(tab.wc, this.win);
+    if (!this.isPrivate) {
+      // The extension helper "activates" every tab it's told about; ignore that so background tabs stay in the background.
+      this._ignoreExtSelect = id;
+      try {
+        this.profile.extensions.addTab(tab.wc, this.win);
+      } finally {
+        this._ignoreExtSelect = null;
+      }
+    }
     tab.wc.loadURL(url).catch(() => {});
 
+    if (background && this.activeId) {
+      tab.freshUntil = Date.now() + 2500; // the tab strip briefly highlights tabs opened in the background
+      setTimeout(() => this.pushState(), 2600);
+    }
     if (!background || !this.activeId) this.activate(id);
-    else this.pushState();
+    else {
+      // Tell extensions which tab is really in front.
+      const cur = this.active;
+      if (cur && !this.isPrivate) {
+        this._ignoreExtSelect = cur.id;
+        this.profile.extensions.selectTab(cur.wc);
+        this._ignoreExtSelect = null;
+      }
+      this.pushState();
+    }
     return tab;
   }
 
@@ -417,7 +438,8 @@ class BrowserWin {
     if (last) this.createTab(last.url, { index: Math.min(last.index, this.order.length), group: last.group });
   }
 
-  moveTab(id, toIndex) {
+  // joinGroup: a group id to join, null to leave groups, undefined to decide from the neighbours.
+  moveTab(id, toIndex, joinGroup) {
     const from = this.order.indexOf(id);
     if (from < 0) return;
     const tab = this.tabs.get(id);
@@ -427,7 +449,10 @@ class BrowserWin {
     // Dragging into the middle of a group joins it; dragging away from your own group leaves it.
     const left = this.tabs.get(this.order[at - 1]);
     const right = this.tabs.get(this.order[at + 1]);
-    if (left && right && left.groupId && left.groupId === right.groupId) tab.groupId = left.groupId;
+    if (joinGroup !== undefined) {
+      if (joinGroup && this.groups.has(joinGroup)) tab.groupId = joinGroup;
+      else if (!joinGroup && tab.groupId && this._groupTabs(tab.groupId).length > 1) tab.groupId = null;
+    } else if (left && right && left.groupId && left.groupId === right.groupId) tab.groupId = left.groupId;
     else if (tab.groupId && !(left && left.groupId === tab.groupId) && !(right && right.groupId === tab.groupId)) {
       const others = this._groupTabs(tab.groupId).filter((t) => t !== tab);
       if (others.length) tab.groupId = null;
@@ -824,6 +849,7 @@ class BrowserWin {
         web: /^https?:/.test(url),
         shieldsOff: store.shieldsOffFor(hostOf(url)),
         groupId: t.groupId || null,
+        fresh: (t.freshUntil || 0) > Date.now(),
       };
     });
     const settings = store.getSettings();

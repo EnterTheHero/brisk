@@ -53,6 +53,7 @@ function render() {
     existing.delete(t.id);
     seq.push(el);
     el.classList.toggle('grouped', !!g);
+    el.classList.toggle('fresh', !!t.fresh && t.id !== state.activeId);
     el.hidden = !!(g && g.collapsed);
     if (g) el.style.setProperty('--group', g.hex);
     else el.style.removeProperty('--group');
@@ -88,6 +89,23 @@ function groupHead(id) {
   el.dataset.group = id;
   el.innerHTML = '<span class="gdot"></span><span class="gname"></span><span class="gcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
   el.addEventListener('click', () => brisk.toggleGroup(id));
+  // Drop a tab on the group heading to add it to the group.
+  el.addEventListener('dragover', (e) => {
+    if (dragId == null) return;
+    e.preventDefault();
+    el.classList.add('drop-into');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('drop-into'));
+  el.addEventListener('drop', (e) => {
+    el.classList.remove('drop-into');
+    if (dragId == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const members = state.tabs.filter((t) => t.groupId === id && t.id !== dragId);
+    const ids = state.tabs.map((t) => t.id).filter((x) => x !== dragId);
+    const at = members.length ? ids.indexOf(members[members.length - 1].id) + 1 : ids.length;
+    brisk.moveTab(dragId, at, id);
+  });
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const r = el.getBoundingClientRect();
@@ -133,7 +151,8 @@ function wire(el, id) {
     if (dragId == null) return;
     e.preventDefault();
     const ids = state.tabs.map((t) => t.id).filter((x) => x !== dragId);
-    brisk.moveTab(dragId, ids.indexOf(id));
+    const over = state.tabs.find((t) => t.id === id);
+    brisk.moveTab(dragId, ids.indexOf(id), (over && over.groupId) || null);
   });
 }
 // Dropping below the last tab moves it to the end.

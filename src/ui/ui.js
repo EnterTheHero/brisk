@@ -115,6 +115,18 @@ function groupChip(g) {
     brisk.editGroup(g.id, { x: r.left, y: r.bottom + 4 });
   });
   el.addEventListener('auxclick', (e) => e.button === 1 && e.preventDefault());
+  el.addEventListener('dragover', (e) => {
+    if (dragId == null) return;
+    e.preventDefault();
+    const members = state.tabs.filter((t) => t.groupId === g.id && t.id !== dragId);
+    if (!members.length) return;
+    const ids = state.tabs.map((t) => t.id).filter((x) => x !== dragId);
+    const key = `chip:${g.id}`;
+    if (key !== lastDragIdx) {
+      lastDragIdx = key;
+      brisk.moveTab(dragId, ids.indexOf(members[members.length - 1].id) + 1, g.id);
+    }
+  });
   return el;
 }
 
@@ -158,6 +170,7 @@ function renderTabs() {
 
     el.classList.toggle('active', t.id === state.activeId);
     el.classList.toggle('narrow', narrow);
+    el.classList.toggle('fresh', !!t.fresh && t.id !== state.activeId);
     el.classList.toggle('grouped', !!g);
     el.classList.toggle('hidden-in-group', !!(g && g.collapsed));
     if (g) el.style.setProperty('--group', g.hex);
@@ -230,9 +243,13 @@ function wireTab(el, id) {
     const after = e.clientX > rect.left + rect.width / 2;
     const ids = state.tabs.map((t) => t.id).filter((x) => x !== dragId);
     const idx = ids.indexOf(id) + (after ? 1 : 0);
-    if (idx !== lastDragIdx) {
-      lastDragIdx = idx;
-      brisk.moveTab(dragId, idx);
+    // Hovering a grouped tab puts the dragged tab in that group; an ungrouped tab takes it out.
+    const over = state.tabs.find((t) => t.id === id);
+    const group = (over && over.groupId) || null;
+    const key = `${idx}:${group}`;
+    if (key !== lastDragIdx) {
+      lastDragIdx = key;
+      brisk.moveTab(dragId, idx, group);
     }
   });
 }

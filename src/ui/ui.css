@@ -812,3 +812,12 @@ body.tabs-left.mac:not(.fullscreen) #toolbar {
 .ge-color.on {
   box-shadow: 0 0 0 2px var(--bar, #fff), 0 0 0 4px var(--c);
 }
+
+/* a tab just opened in the background (e.g. Open Link in New Tab) pulses so you notice it */
+@keyframes fresh-pulse {
+  0%, 100% { background: transparent; }
+  30% { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+}
+.tab.fresh {
+  animation: fresh-pulse 1.2s ease-in-out 2;
+}

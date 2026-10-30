@@ -618,7 +618,8 @@ const MENU_ICONS = {
 };
 let menuOpen = false;
 
-function closeMenu(silent) {
+function closeMenu(silent, why = '') {
+  if (menuOpen) brisk.debugLog(`menu close ${why || (silent ? 'silent' : '')}`);
   document.querySelectorAll('.pm').forEach((el) => el.remove());
   if (menuOpen && !silent) {
     menuOpen = false;
@@ -672,7 +673,8 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
     } else {
       el.addEventListener('mouseenter', () => document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) > level && p.remove()));
       el.addEventListener('click', () => {
-        closeMenu();
+        brisk.debugLog(`menu item click "${it.label}"`);
+        closeMenu(false, 'picked');
         brisk.menuPick(it.id);
       });
       el.addEventListener('auxclick', (e) => {
@@ -704,10 +706,17 @@ brisk.onMenuShow(({ items, anchor }) => {
   menuOpen = true;
   setOverlay(true);
   // Wait a frame so the toolbar has grown to cover the window before measuring.
-  requestAnimationFrame(() => requestAnimationFrame(() => openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight })));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight });
+      const p = document.querySelector('.pm');
+      const r = p && p.getBoundingClientRect();
+      brisk.debugLog(`menu drawn ${items.length} items at ${r ? `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}` : 'NONE'} viewport ${innerWidth}x${innerHeight} focus=${document.hasFocus()}`);
+    })
+  );
 });
 
-$('#scrim').addEventListener('mousedown', () => closeMenu());
+$('#scrim').addEventListener('mousedown', (e) => closeMenu(false, `scrim mousedown btn=${e.button} at ${e.clientX},${e.clientY}`));
 $('#scrim').addEventListener('contextmenu', (e) => {
   e.preventDefault();
   closeMenu();
@@ -715,7 +724,7 @@ $('#scrim').addEventListener('contextmenu', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && menuOpen) closeMenu();
 });
-window.addEventListener('blur', () => menuOpen && closeMenu());
+window.addEventListener('blur', () => menuOpen && closeMenu(false, 'window blur'));
 
 
 // ---------- tab group editor (name, color, actions) ----------
@@ -791,3 +800,6 @@ function openGroupEditor(id, anchor) {
 brisk.onGroupEdit(({ id, anchor }) => openGroupEditor(id, anchor));
 $('#scrim').addEventListener('mousedown', () => closeGroupEditor());
 window.addEventListener('keydown', (e) => e.key === 'Escape' && closeGroupEditor());
+
+window.addEventListener('error', (e) => brisk.debugLog(`error ${e.message} @${e.lineno}`));
+document.addEventListener('mousedown', (e) => menuOpen && brisk.debugLog(`mousedown btn=${e.button} on ${e.target.className || e.target.tagName} at ${e.clientX},${e.clientY}`), true);

@@ -668,6 +668,7 @@ function registerIpc(brisk) {
   ui('find:stop', (w) => w.stopFind());
   ui('menu:main', (w, anchor) => w.showMainMenu(anchor));
   ui('menu:pick', (w, id) => w.pickMenu(Number(id)));
+  ui('debug:log', (w, msg) => require('./debuglog').dlog('ui:', String(msg).slice(0, 400)));
   ui('side:width', (w, px, save) => w.setLiveSidebarWidth(px, !!save));
   ui('menu:shields', (w, anchor) => w.showShieldsMenu(anchor));
   ui('menu:tab', (w, id) => w.showTabMenu(id));
@@ -856,6 +857,7 @@ app.on('second-instance', (_e, argv) => {
 
 app.whenReady().then(async () => {
   brisk = new BriskApp();
+  require('./debuglog').dlog('start', app.getVersion(), process.platform, require('electron').screen.getAllDisplays().map((d) => `${d.size.width}x${d.size.height}@${d.scaleFactor}`));
   global.__brisk = brisk; // handy for debugging from DevTools / smoke tests
   registerIpc(brisk);
   brisk.buildAppMenu();

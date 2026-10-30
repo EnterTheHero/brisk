@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('brisk', {
   menuPick: invoke('menu:pick'),
   setSidebarWidth: invoke('side:width'),
   onMenuShow: on('menu:show'),
+  debugLog: invoke('debug:log'),
   onGroupEdit: on('group:edit'),
   downloadsMenu: invoke('menu:downloads'),
   onState: on('state'),

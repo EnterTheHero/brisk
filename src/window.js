@@ -5,6 +5,7 @@ const { BaseWindow, WebContentsView, Menu, clipboard, nativeTheme, shell, screen
 const { resolveInput, displayUrl } = require('./url-utils');
 const { hostOf } = require('./shields');
 const { popupMenu } = require('./menu-popup');
+const { dlog } = require('./debuglog');
 
 const IS_MAC = process.platform === 'darwin';
 const NEW_TAB = 'brisk://newtab';
@@ -212,6 +213,7 @@ class BrowserWin {
   }
 
   setOverlay(on) {
+    if (!!on !== this.overlay) dlog('overlay', !!on);
     this.overlay = !!on;
     this.layout();
   }
@@ -223,6 +225,7 @@ class BrowserWin {
 
   // ------------------------------------------------------------------ tabs
   createTab(url = NEW_TAB, { background = false, index, group } = {}) {
+    dlog('createTab', { site: dlog.host(url), background, index, group: group || null });
     const id = nextTabId++;
     const view = new WebContentsView({
       webPreferences: {
@@ -389,7 +392,14 @@ class BrowserWin {
       return { action: 'deny' };
     });
 
-    wc.on('context-menu', (_e, params) => this._pageMenu(tab, params));
+    wc.on('context-menu', (_e, params) => {
+      dlog('page context-menu', { tab: tab.id, site: dlog.host(wc.getURL()), link: params.linkURL ? dlog.host(params.linkURL) : '', x: params.x, y: params.y, media: params.mediaType, editable: params.isEditable, src: params.menuSourceType });
+      try {
+        this._pageMenu(tab, params);
+      } catch (err) {
+        dlog('page menu FAILED', err && err.stack);
+      }
+    });
   }
 
   activate(id) {
@@ -508,6 +518,7 @@ class BrowserWin {
   }
 
   addTabsToGroup(ids, groupId) {
+    dlog('addTabsToGroup', { ids, groupId });
     let g = groupId && this.groups.get(groupId);
     const fresh = !g;
     if (!g) g = this._makeGroup();
@@ -544,6 +555,7 @@ class BrowserWin {
   }
 
   updateGroup(groupId, fields = {}) {
+    dlog('updateGroup', { groupId, fields });
     const g = this.groups.get(groupId);
     if (!g) return;
     if (typeof fields.name === 'string') g.name = fields.name.trim().slice(0, 40);
@@ -552,6 +564,7 @@ class BrowserWin {
   }
 
   toggleGroup(groupId, collapsed) {
+    dlog('toggleGroup', { groupId, collapsed });
     const g = this.groups.get(groupId);
     if (!g) return;
     g.collapsed = typeof collapsed === 'boolean' ? collapsed : !g.collapsed;
@@ -566,12 +579,14 @@ class BrowserWin {
   }
 
   ungroup(groupId) {
+    dlog('ungroup', { groupId });
     for (const t of this._groupTabs(groupId)) t.groupId = null;
     this.groups.delete(groupId);
     this.pushState();
   }
 
   closeGroup(groupId) {
+    dlog('closeGroup', { groupId });
     const ids = this._groupTabs(groupId).map((t) => t.id);
     if (ids.length === this.order.length) this.createTab(NEW_TAB); // keep the window open
     ids.forEach((id) => this.closeTab(id));
@@ -755,12 +770,15 @@ class BrowserWin {
           };
         });
     this._menuHandlers = handlers;
-    this.ui.webContents.send('menu:show', { items: conv(template, 0), anchor });
+    const menuItems = conv(template, 0);
+    dlog('menu show', { anchor, handlers: handlers.size, ui: this.ui.getBounds(), content: this.win.getContentBounds(), overlay: this.overlay });
+    this.ui.webContents.send('menu:show', { items: menuItems, anchor });
     this.ui.webContents.focus();
   }
 
   pickMenu(id) {
     const fn = this._menuHandlers && this._menuHandlers.get(id);
+    dlog('menu pick', { id, found: !!fn, hadMenu: !!this._menuHandlers });
     const back = this._menuReturnFocus;
     this._menuHandlers = null;
     this._menuReturnFocus = null;
@@ -1091,6 +1109,7 @@ class BrowserWin {
     }
     items.push({ label: 'Inspect', click: () => wc.inspectElement(params.x, params.y) });
     const b = tab.view.getBounds();
+    dlog('page menu items', items.filter((i) => i.label).map((i) => i.label));
     this._popup(items, { x: b.x + params.x, y: b.y + params.y }, { returnFocus: wc });
   }
 

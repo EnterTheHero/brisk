@@ -618,7 +618,8 @@ const MENU_ICONS = {
 };
 let menuOpen = false;
 
-function closeMenu(silent) {
+function closeMenu(silent, why = '') {
+  if (menuOpen) brisk.debugLog(`menu close ${why || (silent ? 'silent' : '')}`);
   document.querySelectorAll('.pm').forEach((el) => el.remove());
   if (menuOpen && !silent) {
     menuOpen = false;
@@ -672,9 +673,19 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
     } else {
       el.addEventListener('mouseenter', () => document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) > level && p.remove()));
       el.addEventListener('click', () => {
-        closeMenu();
+        brisk.debugLog(`menu item click "${it.label}"`);
+        closeMenu(false, 'picked');
         brisk.menuPick(it.id);
       });
+      if (it.url) {
+        // Right-click a bookmark in a dropdown: the usual "open in…" choices, like Chrome.
+        el.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          brisk.debugLog('bookmark item right-click');
+          openLinkMenu(it.url, e.clientX, e.clientY, level + 1);
+        });
+      }
       el.addEventListener('auxclick', (e) => {
         if (e.button === 1 && it.url) {
           closeMenu();
@@ -698,16 +709,53 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
   panel.style.top = `${top}px`;
 }
 
+function openLinkMenu(url, x, y, level) {
+  document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) >= level && p.remove());
+  const panel = document.createElement('div');
+  panel.className = 'pm';
+  panel.dataset.level = String(level);
+  const choices = [
+    ['tab', 'Open in New Tab'],
+    ['window', 'Open in New Window'],
+    ['private', 'Open in Private Window'],
+    ['sep'],
+    ['copy', 'Copy Link Address'],
+  ];
+  for (const [where, label] of choices) {
+    if (where === 'sep') {
+      panel.appendChild(Object.assign(document.createElement('div'), { className: 'pm-sep' }));
+      continue;
+    }
+    const el = menuItemEl({ label, enabled: true });
+    el.addEventListener('click', () => {
+      closeMenu(false, `bookmark ${where}`);
+      brisk.openBookmarkIn(url, where);
+    });
+    panel.appendChild(el);
+  }
+  document.body.appendChild(panel);
+  const r = panel.getBoundingClientRect();
+  panel.style.left = `${Math.max(6, Math.min(x, innerWidth - r.width - 6))}px`;
+  panel.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
+}
+
 brisk.onMenuShow(({ items, anchor }) => {
   hideSuggestions();
   closeMenu(true);
   menuOpen = true;
   setOverlay(true);
   // Wait a frame so the toolbar has grown to cover the window before measuring.
-  requestAnimationFrame(() => requestAnimationFrame(() => openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight })));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight });
+      const p = document.querySelector('.pm');
+      const r = p && p.getBoundingClientRect();
+      brisk.debugLog(`menu drawn ${items.length} items at ${r ? `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}` : 'NONE'} viewport ${innerWidth}x${innerHeight} focus=${document.hasFocus()}`);
+    })
+  );
 });
 
-$('#scrim').addEventListener('mousedown', () => closeMenu());
+$('#scrim').addEventListener('mousedown', (e) => closeMenu(false, `scrim mousedown btn=${e.button} at ${e.clientX},${e.clientY}`));
 $('#scrim').addEventListener('contextmenu', (e) => {
   e.preventDefault();
   closeMenu();
@@ -715,7 +763,7 @@ $('#scrim').addEventListener('contextmenu', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && menuOpen) closeMenu();
 });
-window.addEventListener('blur', () => menuOpen && closeMenu());
+window.addEventListener('blur', () => menuOpen && closeMenu(false, 'window blur'));
 
 
 // ---------- tab group editor (name, color, actions) ----------
@@ -791,3 +839,6 @@ function openGroupEditor(id, anchor) {
 brisk.onGroupEdit(({ id, anchor }) => openGroupEditor(id, anchor));
 $('#scrim').addEventListener('mousedown', () => closeGroupEditor());
 window.addEventListener('keydown', (e) => e.key === 'Escape' && closeGroupEditor());
+
+window.addEventListener('error', (e) => brisk.debugLog(`error ${e.message} @${e.lineno}`));
+document.addEventListener('mousedown', (e) => menuOpen && brisk.debugLog(`mousedown btn=${e.button} on ${e.target.className || e.target.tagName} at ${e.clientX},${e.clientY}`), true);

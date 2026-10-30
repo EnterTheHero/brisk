@@ -1,6 +1,6 @@
 {
   "name": "brisk-browser",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "A lightweight, private Chromium-based browser with built-in ad and tracker blocking and Google Drive sync.",
   "main": "src/main.js",
   "scripts": {

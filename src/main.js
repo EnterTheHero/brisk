@@ -663,11 +663,21 @@ function registerIpc(brisk) {
   ui('bookmark:overflow', (w, ids, anchor) => w.showBookmarkOverflow(Array.isArray(ids) ? ids.map(String) : [], anchor));
   ui('menu:profile', (w, anchor) => brisk.showProfileMenu(w, anchor));
   ui('bookmark:open', (w, url, newTab) => (newTab ? w.createTab(url, { background: true }) : w.navigate(url)));
+  // Right-click on a bookmark inside a bookmark-folder dropdown.
+  ui('bookmark:openIn', (w, url, where) => {
+    url = String(url || '');
+    if (!/^(https?|brisk|file|ftp):/i.test(url)) return;
+    if (where === 'tab') w.createTab(url, { background: true });
+    else if (where === 'window') brisk.newWindow({ urls: [url], profile: w.profile });
+    else if (where === 'private') brisk.newWindow({ urls: [url], isPrivate: true, profile: w.profile });
+    else if (where === 'copy') require('electron').clipboard.writeText(url);
+  });
   ui('suggest', (w, text) => (w.isPrivate ? w.profile.store.suggest(text).filter((s) => s.type === 'bookmark') : w.profile.store.suggest(text)));
   ui('find:query', (w, text, opts) => w.find(text, opts || {}));
   ui('find:stop', (w) => w.stopFind());
   ui('menu:main', (w, anchor) => w.showMainMenu(anchor));
   ui('menu:pick', (w, id) => w.pickMenu(Number(id)));
+  ui('debug:log', (w, msg) => require('./debuglog').dlog('ui:', String(msg).slice(0, 400)));
   ui('side:width', (w, px, save) => w.setLiveSidebarWidth(px, !!save));
   ui('menu:shields', (w, anchor) => w.showShieldsMenu(anchor));
   ui('menu:tab', (w, id) => w.showTabMenu(id));
@@ -856,6 +866,7 @@ app.on('second-instance', (_e, argv) => {
 
 app.whenReady().then(async () => {
   brisk = new BriskApp();
+  require('./debuglog').dlog('start', app.getVersion(), process.platform, require('electron').screen.getAllDisplays().map((d) => `${d.size.width}x${d.size.height}@${d.scaleFactor}`));
   global.__brisk = brisk; // handy for debugging from DevTools / smoke tests
   registerIpc(brisk);
   brisk.buildAppMenu();

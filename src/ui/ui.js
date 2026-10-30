@@ -677,6 +677,15 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
         closeMenu(false, 'picked');
         brisk.menuPick(it.id);
       });
+      if (it.url) {
+        // Right-click a bookmark in a dropdown: the usual "open in…" choices, like Chrome.
+        el.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          brisk.debugLog('bookmark item right-click');
+          openLinkMenu(it.url, e.clientX, e.clientY, level + 1);
+        });
+      }
       el.addEventListener('auxclick', (e) => {
         if (e.button === 1 && it.url) {
           closeMenu();
@@ -698,6 +707,36 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
   if (top + r.height > H - 8) top = Math.max(8, H - r.height - 8);
   panel.style.left = `${left}px`;
   panel.style.top = `${top}px`;
+}
+
+function openLinkMenu(url, x, y, level) {
+  document.querySelectorAll('.pm').forEach((p) => Number(p.dataset.level) >= level && p.remove());
+  const panel = document.createElement('div');
+  panel.className = 'pm';
+  panel.dataset.level = String(level);
+  const choices = [
+    ['tab', 'Open in New Tab'],
+    ['window', 'Open in New Window'],
+    ['private', 'Open in Private Window'],
+    ['sep'],
+    ['copy', 'Copy Link Address'],
+  ];
+  for (const [where, label] of choices) {
+    if (where === 'sep') {
+      panel.appendChild(Object.assign(document.createElement('div'), { className: 'pm-sep' }));
+      continue;
+    }
+    const el = menuItemEl({ label, enabled: true });
+    el.addEventListener('click', () => {
+      closeMenu(false, `bookmark ${where}`);
+      brisk.openBookmarkIn(url, where);
+    });
+    panel.appendChild(el);
+  }
+  document.body.appendChild(panel);
+  const r = panel.getBoundingClientRect();
+  panel.style.left = `${Math.max(6, Math.min(x, innerWidth - r.width - 6))}px`;
+  panel.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
 }
 
 brisk.onMenuShow(({ items, anchor }) => {

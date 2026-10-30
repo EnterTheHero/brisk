@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('brisk', {
   focusPage: invoke('nav:focusPage'),
   toggleBookmark: invoke('bookmark:toggle'),
   openBookmark: invoke('bookmark:open'),
+  openBookmarkIn: invoke('bookmark:openIn'),
   suggest: invoke('suggest'),
   find: invoke('find:query'),
   stopFind: invoke('find:stop'),

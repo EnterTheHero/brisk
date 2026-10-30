@@ -129,7 +129,7 @@ app.whenReady().then(async () => {
     const f = store.addFolder({ title: 'Comics' });
     store.addBookmarkTo({ title: 'Local page', url: 'http://127.0.0.1:8767/other', parentId: f.id });
     await wait(1200);
-    await clickEl(w, w.ui, `[...document.querySelectorAll('#bookmarks *')].find(e => e.textContent.trim() === 'Comics' && e.children.length < 3)`);
+    await clickEl(w, w.ui, `document.querySelector('#bookmarks .bm.folder')`);
     await wait(900);
     log('D dropdown:', await menuLabels(w));
     await clickEl(w, w.ui, findItem('Local page'), 'rclick');

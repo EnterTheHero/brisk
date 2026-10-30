@@ -123,6 +123,24 @@ app.whenReady().then(async () => {
     await wait(1000);
     log('C clicked group item', ok2, '| tabs per group:', [...w.groups.values()].map((g) => `${g.name}=${w._groupTabs(g.id).length}`).join(','));
     shot('C-after');
+    // ---- D: bookmarks-bar folder dropdown, right-click a bookmark, Open in New Tab ----
+    const store = b.currentProfile().store;
+    store.setSetting('showBookmarksBar', true);
+    const f = store.addFolder({ title: 'Comics' });
+    store.addBookmarkTo({ title: 'Local page', url: 'http://127.0.0.1:8767/other', parentId: f.id });
+    await wait(1200);
+    await clickEl(w, w.ui, `[...document.querySelectorAll('#bookmarks *')].find(e => e.textContent.trim() === 'Comics' && e.children.length < 3)`);
+    await wait(900);
+    log('D dropdown:', await menuLabels(w));
+    await clickEl(w, w.ui, findItem('Local page'), 'rclick');
+    await wait(700);
+    log('D after right-click:', await menuLabels(w));
+    shot('D-bookmark-rightclick');
+    const n0 = w.order.length;
+    const act0 = w.activeId;
+    await clickEl(w, w.ui, findItem('Open in New Tab'));
+    await wait(1200);
+    log('D tabs', n0, '->', w.order.length, '| stayed', w.activeId === act0, '| menus left', await w.ui.webContents.executeJavaScript('document.querySelectorAll(".pm").length'));
   } catch (e) {
     log('ERROR', e.stack);
   }

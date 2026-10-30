@@ -33,6 +33,7 @@ const GROUP_COLORS = {
 const GROUP_COLOR_NAMES = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange', 'grey']; // order new groups pick from
 const SIDE_MIN = 44; // icons only
 const SIDE_MAX = 420;
+const SHELF_H = 54; // downloads bar height
 
 // Menu labels: keep them short, and stop Windows treating "&" as a keyboard shortcut marker.
 function menuLabel(text) {
@@ -116,6 +117,7 @@ class BrowserWin {
       }
       if (!this.ui.webContents.isDestroyed()) this.ui.webContents.close();
       if (this.side && !this.side.webContents.isDestroyed()) this.side.webContents.close();
+      if (this.shelf && !this.shelf.webContents.isDestroyed()) this.shelf.webContents.close();
       this.app.onWindowClosed(this);
     });
     // Mouse back/forward buttons (Windows) and trackpad swipes (Mac)
@@ -176,6 +178,61 @@ class BrowserWin {
     this._raiseUi();
   }
 
+  // ------------------------------------------------------------ downloads bar
+  _ensureShelf() {
+    if (this.shelf) return;
+    this.shelf = new WebContentsView({
+      webPreferences: { preload: UI_PRELOAD, contextIsolation: true, sandbox: false, nodeIntegration: false },
+    });
+    this.shelf.setBackgroundColor('#00000000');
+    this.win.contentView.addChildView(this.shelf);
+    this.shelf.webContents.loadFile(path.join(__dirname, 'ui', 'shelf.html'));
+    this.shelf.webContents.on('will-navigate', (e) => e.preventDefault());
+    this.shelf.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    this.shelf.webContents.on('did-finish-load', () => this._sendShelf());
+    this._raiseUi();
+  }
+
+  get shelfVisible() {
+    return !!this._shelfOpen && !this.htmlFullscreen && (this._shelfItems || []).length > 0;
+  }
+
+  showShelf() {
+    if (this.profile.store.get('showDownloadBar') === false) return;
+    this._shelfOpen = true;
+    this._ensureShelf();
+    this.layout();
+  }
+
+  hideShelf() {
+    // The bar's own close button: take everything finished off it, keep running ones listed under the toolbar button.
+    for (const d of this._downloads || []) if (d.winId === this.id) d.onShelf = false;
+    this._shelfOpen = false;
+    this.layout();
+    this.app.pushDownloads();
+  }
+
+  setDownloads(list) {
+    this._downloads = list;
+    this._shelfItems = list.filter((d) => d.winId === this.id && d.onShelf);
+    if (!this._shelfItems.length) this._shelfOpen = false;
+    if (!this.ui.webContents.isDestroyed()) this.ui.webContents.send('downloads', list);
+    this._sendShelf();
+    this.layout();
+  }
+
+  _sendShelf() {
+    if (this.shelf && !this.shelf.webContents.isDestroyed()) {
+      this.shelf.webContents.send('shelf', { items: this._shelfItems || [], profile: this.profile.publicInfo(), isPrivate: this.isPrivate });
+    }
+  }
+
+  // Shelf-view point -> window point (for menus drawn by the toolbar view).
+  shelfAnchor(a) {
+    const b = this.shelf ? this.shelf.getBounds() : { x: 0, y: 0 };
+    return a && typeof a.x === 'number' ? { x: b.x + a.x, y: b.y + a.y, up: true } : undefined;
+  }
+
   setLiveSidebarWidth(px, save) {
     this._liveSideWidth = Math.max(SIDE_MIN, Math.min(SIDE_MAX, Math.round(Number(px) || 110)));
     this.layout();
@@ -192,15 +249,21 @@ class BrowserWin {
     const left = this.tabsLeft && !this.htmlFullscreen;
     if (left) this._ensureSide();
     const sideW = left ? Math.min(this.sidebarWidth(), Math.max(SIDE_MIN, width - 200)) : 0;
+    const shelfH = this.shelfVisible ? SHELF_H : 0;
+    if (this.shelf) {
+      this.shelf.setVisible(shelfH > 0);
+      if (shelfH) this.shelf.setBounds({ x: 0, y: height - shelfH, width, height: shelfH });
+    }
+    const bodyH = Math.max(0, height - top - shelfH);
     this.ui.setBounds({ x: 0, y: 0, width, height: this.overlay ? height : this.htmlFullscreen ? 0 : top });
     if (this.side) {
       this.side.setVisible(left);
-      if (left) this.side.setBounds({ x: 0, y: top, width: sideW, height: Math.max(0, height - top) });
+      if (left) this.side.setBounds({ x: 0, y: top, width: sideW, height: bodyH });
     }
     for (const [id, tab] of this.tabs) {
       const active = id === this.activeId;
       tab.view.setVisible(active);
-      if (active) tab.view.setBounds({ x: sideW, y: top, width: Math.max(0, width - sideW), height: Math.max(0, height - top) });
+      if (active) tab.view.setBounds({ x: sideW, y: top, width: Math.max(0, width - sideW), height: bodyH });
     }
   }
 

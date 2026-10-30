@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+    <title>Downloads</title>
+    <link rel="stylesheet" href="../fonts/fonts.css" />
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="shelf.css" />
+  </head>
+  <body class="shelf">
+    <div id="shelf">
+      <div id="items"></div>
+      <div id="actions">
+        <button id="clear-done" class="text-btn" hidden>Clear finished</button>
+        <button id="show-all" class="text-btn" title="Open your Downloads folder">Show all</button>
+        <button id="close-bar" class="icon-btn small" title="Close downloads bar"></button>
+      </div>
+    </div>
+    <script src="shelf.js"></script>
+  </body>
+</html>

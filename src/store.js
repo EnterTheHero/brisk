@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   httpsUpgrade: true,
   sendGPC: true,
   showBookmarksBar: true,
+  showDownloadBar: true,
   restoreTabs: true,
   theme: 'system',
   tabsPosition: 'top', showSplash: true, // or 'left' (vertical tabs)

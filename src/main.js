@@ -395,6 +395,7 @@ class BriskApp {
 
 
   // ---- downloads ----
+  // Each download remembers the window it started in; that window's downloads bar shows it until it's cleared.
   trackDownload(item, wc) {
     const dir = app.getPath('downloads');
     const base = item.getFilename() || 'download';
@@ -404,26 +405,142 @@ class BriskApp {
     for (let i = 1; fs.existsSync(target); i++) target = path.join(dir, `${stem} (${i})${ext}`);
     item.setSavePath(target);
 
-    const rec = { id: Date.now() + Math.random(), name: path.basename(target), path: target, state: 'progressing', received: 0, total: item.getTotalBytes() };
-    this.downloads.unshift(rec);
-    this.downloads = this.downloads.slice(0, 20);
-    const push = () => {
-      const w = this.windowForContents(wc) || this.currentWindow();
-      if (w && !w.ui.webContents.isDestroyed()) w.ui.webContents.send('downloads', this.downloads);
+    const w = this.windowForContents(wc) || this.currentWindow();
+    const rec = {
+      id: `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      name: path.basename(target),
+      path: target,
+      site: (() => {
+        try {
+          return new URL(item.getURL()).host;
+        } catch {
+          return '';
+        }
+      })(),
+      state: 'progressing',
+      paused: false,
+      received: 0,
+      total: item.getTotalBytes(),
+      speed: 0,
+      winId: w ? w.id : null,
+      onShelf: true,
+      icon: '',
+      started: Date.now(),
     };
+    this.downloadItems = this.downloadItems || new Map();
+    this.downloadItems.set(rec.id, item);
+    this.downloads.unshift(rec);
+    // Keep the list short, but never drop one that's still downloading.
+    while (this.downloads.length > 30) {
+      const i = this.downloads.map((d) => d.state).lastIndexOf('completed');
+      const drop = i >= 0 ? i : this.downloads.findLastIndex((d) => d.state !== 'progressing');
+      if (drop < 0) break;
+      this.downloadItems.delete(this.downloads[drop].id);
+      this.downloads.splice(drop, 1);
+    }
     item.on('updated', (_e, state) => {
       rec.state = state === 'interrupted' ? 'interrupted' : 'progressing';
+      rec.paused = item.isPaused();
       rec.received = item.getReceivedBytes();
       rec.total = item.getTotalBytes();
-      push();
+      rec.speed = item.getCurrentBytesPerSecond ? item.getCurrentBytesPerSecond() : 0;
+      this.pushDownloads(true);
     });
-    item.once('done', (_e, state) => {
+    item.once('done', async (_e, state) => {
       rec.state = state; // completed | cancelled | interrupted
+      rec.paused = false;
       rec.received = item.getReceivedBytes();
-      push();
-      if (IS_MAC && state === 'completed') app.dock.downloadFinished(target);
+      rec.speed = 0;
+      if (state === 'completed') {
+        rec.total = rec.received;
+        rec.icon = await this.fileIcon(target);
+        if (IS_MAC) app.dock.downloadFinished(target);
+      }
+      this.pushDownloads();
     });
-    push();
+    const win = w && this.windows.get(w.id);
+    if (win) win.showShelf();
+    this.pushDownloads();
+  }
+
+  async fileIcon(file) {
+    try {
+      return (await app.getFileIcon(file, { size: 'normal' })).toDataURL();
+    } catch {
+      return '';
+    }
+  }
+
+  // Send the list to every window (throttled while bytes are arriving).
+  pushDownloads(throttle) {
+    const send = () => {
+      this._dlTimer = null;
+      for (const w of this.windows.values()) w.setDownloads(this.downloads);
+    };
+    if (!throttle) {
+      clearTimeout(this._dlTimer);
+      send();
+    } else if (!this._dlTimer) this._dlTimer = setTimeout(send, 250);
+  }
+
+  downloadAction(w, id, action) {
+    const rec = this.downloads.find((d) => d.id === id);
+    if (!rec) return;
+    const item = this.downloadItems && this.downloadItems.get(id);
+    const live = item && rec.state === 'progressing';
+    switch (action) {
+      case 'open':
+        if (rec.state === 'completed') shell.openPath(rec.path).then((err) => err && shell.showItemInFolder(rec.path));
+        break;
+      case 'show':
+        if (fs.existsSync(rec.path)) shell.showItemInFolder(rec.path);
+        else shell.openPath(app.getPath('downloads'));
+        break;
+      case 'pause':
+        if (live) item.pause();
+        break;
+      case 'resume':
+        if (item && item.canResume()) item.resume();
+        break;
+      case 'cancel':
+        if (live) item.cancel();
+        break;
+      case 'retry':
+        if (item) w.active && w.active.wc.downloadURL(item.getURL());
+        rec.onShelf = false;
+        break;
+      case 'dismiss': // the × on one item: off the bar (still listed under the toolbar's Downloads button)
+        if (live) item.cancel();
+        rec.onShelf = false;
+        break;
+      case 'remove': // gone from every list
+        if (live) item.cancel();
+        this.downloads = this.downloads.filter((d) => d !== rec);
+        this.downloadItems.delete(id);
+        break;
+    }
+    this.pushDownloads();
+  }
+
+  clearFinishedFromShelf(w) {
+    for (const d of this.downloads) if (d.winId === w.id && d.state !== 'progressing') d.onShelf = false;
+    this.pushDownloads();
+  }
+
+  showDownloadItemMenu(w, id, anchor) {
+    const d = this.downloads.find((x) => x.id === id);
+    if (!d) return;
+    const act = (a) => () => this.downloadAction(w, id, a);
+    const items = [];
+    if (d.state === 'completed') items.push({ label: 'Open', click: act('open') }, { label: 'Show in Folder', click: act('show') });
+    if (d.state === 'progressing') {
+      items.push(d.paused ? { label: 'Resume', click: act('resume') } : { label: 'Pause', click: act('pause') });
+      items.push({ label: 'Cancel', click: act('cancel') });
+    }
+    if (d.state === 'interrupted' || d.state === 'cancelled') items.push({ label: 'Try Again', click: act('retry') });
+    items.push({ label: 'Copy Download Link', click: () => { const it = this.downloadItems.get(id); if (it) require('electron').clipboard.writeText(it.getURL()); } });
+    items.push({ type: 'separator' }, { label: 'Remove from Bar', click: act('dismiss') }, { label: 'Remove from List', click: act('remove') });
+    w._popup(items, anchor);
   }
 
   showDownloadsMenu(w, anchor) {
@@ -437,11 +554,12 @@ class BriskApp {
     items.push(
       { type: 'separator' },
       { label: 'Open Downloads Folder', click: () => shell.openPath(app.getPath('downloads')) },
+      { label: 'Show Downloads Bar', enabled: this.downloads.some((d) => d.winId === w.id || d.onShelf), click: () => { for (const d of this.downloads) if (d.state === 'progressing' || d.winId === w.id) { d.onShelf = true; d.winId = w.id; } this.pushDownloads(); w.showShelf(); } },
       {
         label: 'Clear List',
         click: () => {
           this.downloads = this.downloads.filter((d) => d.state === 'progressing');
-          w.ui.webContents.send('downloads', this.downloads);
+          this.pushDownloads();
         },
       }
     );
@@ -630,7 +748,7 @@ function registerIpc(brisk) {
   // From the toolbar UI. The sender must be one of our toolbar views.
   const ui = (channel, fn) =>
     ipcMain.handle(channel, (event, ...args) => {
-      const w = [...brisk.windows.values()].find((x) => x.ui.webContents === event.sender || (x.side && x.side.webContents === event.sender));
+      const w = [...brisk.windows.values()].find((x) => x.ui.webContents === event.sender || (x.side && x.side.webContents === event.sender) || (x.shelf && x.shelf.webContents === event.sender));
       if (!w) return undefined;
       return fn(w, ...args);
     });
@@ -683,6 +801,11 @@ function registerIpc(brisk) {
   ui('menu:tab', (w, id) => w.showTabMenu(id));
   ui('menu:bookmark', (w, id) => w.showBookmarkMenu(id));
   ui('menu:downloads', (w, anchor) => brisk.showDownloadsMenu(w, anchor));
+  ui('dl:action', (w, id, action) => brisk.downloadAction(w, String(id), String(action)));
+  ui('dl:menu', (w, id, anchor) => brisk.showDownloadItemMenu(w, String(id), w.shelfAnchor(anchor)));
+  ui('dl:clearDone', (w) => brisk.clearFinishedFromShelf(w));
+  ui('dl:closeShelf', (w) => w.hideShelf());
+  ui('dl:folder', () => shell.openPath(app.getPath('downloads')));
 
   // From internal brisk:// pages only.
   const page = (channel, fn) =>

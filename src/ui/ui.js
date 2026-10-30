@@ -651,7 +651,7 @@ function menuItemEl(it) {
   return el;
 }
 
-function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect = null } = {}) {
+function openMenuPanel(items, x, y, { alignRight = false, up = false, level = 0, parentRect = null } = {}) {
   document.querySelectorAll('.pm').forEach((el) => Number(el.dataset.level) >= level && el.remove());
   const panel = document.createElement('div');
   panel.className = 'pm';
@@ -701,7 +701,7 @@ function openMenuPanel(items, x, y, { alignRight = false, level = 0, parentRect 
   panel.style.maxHeight = `${H - 16}px`;
   const r = panel.getBoundingClientRect();
   let left = alignRight ? x - r.width : x;
-  let top = y;
+  let top = up ? y - r.height - 4 : y;
   if (left + r.width > W - 6) left = parentRect ? parentRect.left - r.width + 4 : W - r.width - 6;
   if (left < 6) left = 6;
   if (top + r.height > H - 8) top = Math.max(8, H - r.height - 8);
@@ -747,7 +747,7 @@ brisk.onMenuShow(({ items, anchor }) => {
   // Wait a frame so the toolbar has grown to cover the window before measuring.
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
-      openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight });
+      openMenuPanel(items, anchor.x, anchor.y, { alignRight: !!anchor.alignRight, up: !!anchor.up });
       const p = document.querySelector('.pm');
       const r = p && p.getBoundingClientRect();
       brisk.debugLog(`menu drawn ${items.length} items at ${r ? `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}` : 'NONE'} viewport ${innerWidth}x${innerHeight} focus=${document.hasFocus()}`);

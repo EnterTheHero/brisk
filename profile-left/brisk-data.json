@@ -1,0 +1,36 @@
+{
+  "bookmarks": [
+    {
+      "id": "61c17b97-d731-4e74-8456-fff788602e9e",
+      "type": "folder",
+      "title": "Comics",
+      "parentId": "bar",
+      "order": 1793343995432,
+      "createdAt": 1793343995432,
+      "updatedAt": 1793343995432
+    },
+    {
+      "id": "6ead6063-c6d4-4543-bcc2-34de779bef8d",
+      "type": "bookmark",
+      "title": "Local page",
+      "parentId": "61c17b97-d731-4e74-8456-fff788602e9e",
+      "order": 1793343995432,
+      "createdAt": 1793343995432,
+      "updatedAt": 1793343995432,
+      "url": "http://127.0.0.1:8767/other"
+    }
+  ],
+  "settings": {
+    "values": {
+      "tabsPosition": "left",
+      "restoreTabs": false,
+      "showBookmarksBar": true
+    },
+    "stamps": {
+      "tabsPosition": 1793343969075,
+      "restoreTabs": 1793343969075,
+      "showBookmarksBar": 1793343995431
+    }
+  },
+  "shields": {}
+}

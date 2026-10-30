@@ -1,0 +1,14 @@
+{
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Personal",
+      "color": "#e8572a",
+      "avatar": ""
+    }
+  ],
+  "lastUsed": "default",
+  "openAtQuit": [
+    "default"
+  ]
+}

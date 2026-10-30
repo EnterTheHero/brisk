@@ -1,0 +1,48 @@
+2026-10-30T07:06:05.007Z start 44.9.1 win32 ["455x341@1.5"]
+2026-10-30T07:06:05.089Z createTab {"site":"newtab","background":false,"group":null}
+2026-10-30T07:06:17.050Z page context-menu {"tab":1,"site":"127.0.0.1:8767","link":"127.0.0.1:8767","x":80,"y":81,"media":"none","editable":false,"src":"mouse"}
+2026-10-30T07:06:17.051Z page menu items ["Open Link in New Tab","Open Link in New Window","Open Link in Private Window","Copy Link Address","Inspect"]
+2026-10-30T07:06:17.052Z menu show {"anchor":{"x":190,"y":170},"handlers":5,"ui":{"x":0,"y":0,"width":1190,"height":89},"content":{"x":45,"y":61,"width":1190,"height":774},"overlay":false}
+2026-10-30T07:06:17.054Z overlay true
+2026-10-30T07:06:17.070Z ui: menu drawn 6 items at 190,167 230x184 viewport 1190x774 focus=true
+2026-10-30T07:06:19.411Z ui: mousedown btn=0 on pm-label at 304,193
+2026-10-30T07:06:19.412Z ui: menu item click "Open Link in New Tab"
+2026-10-30T07:06:19.412Z ui: menu close picked
+2026-10-30T07:06:19.412Z overlay false
+2026-10-30T07:06:19.413Z menu pick {"id":1,"found":true,"hadMenu":true}
+2026-10-30T07:06:19.415Z createTab {"site":"127.0.0.1:8767","background":true,"index":1,"group":null}
+2026-10-30T07:06:23.242Z menu show {"anchor":{"x":55,"y":143},"handlers":8,"ui":{"x":0,"y":0,"width":1190,"height":89},"content":{"x":45,"y":61,"width":1190,"height":774},"overlay":false}
+2026-10-30T07:06:23.243Z overlay true
+2026-10-30T07:06:23.257Z ui: menu drawn 10 items at 55,140 230x291 viewport 1190x774 focus=true
+2026-10-30T07:06:25.360Z ui: mousedown btn=0 on pm-label at 170,198
+2026-10-30T07:06:25.361Z ui: menu item click "Add Tab to New Group"
+2026-10-30T07:06:25.361Z ui: menu close picked
+2026-10-30T07:06:25.361Z overlay false
+2026-10-30T07:06:25.362Z menu pick {"id":2,"found":true,"hadMenu":true}
+2026-10-30T07:06:25.364Z addTabsToGroup {"ids":[1]}
+2026-10-30T07:06:25.366Z overlay true
+2026-10-30T07:06:27.586Z updateGroup {"groupId":"g1","fields":{"name":"W"}}
+2026-10-30T07:06:27.587Z updateGroup {"groupId":"g1","fields":{"name":"Wo"}}
+2026-10-30T07:06:27.588Z updateGroup {"groupId":"g1","fields":{"name":"Wor"}}
+2026-10-30T07:06:27.589Z updateGroup {"groupId":"g1","fields":{"name":"Work"}}
+2026-10-30T07:06:28.500Z updateGroup {"groupId":"g1","fields":{"name":"Work"}}
+2026-10-30T07:06:28.500Z overlay false
+2026-10-30T07:06:30.406Z menu show {"anchor":{"x":55,"y":203},"handlers":9,"ui":{"x":0,"y":0,"width":1190,"height":89},"content":{"x":45,"y":61,"width":1190,"height":774},"overlay":false}
+2026-10-30T07:06:30.407Z overlay true
+2026-10-30T07:06:30.427Z ui: menu drawn 11 items at 55,200 230x323 viewport 1190x774 focus=true
+2026-10-30T07:06:32.024Z ui: mousedown btn=0 on pm-label at 170,290
+2026-10-30T07:06:33.931Z ui: mousedown btn=0 on pm-label at 388,290
+2026-10-30T07:06:33.931Z ui: menu item click "Work"
+2026-10-30T07:06:33.932Z ui: menu close picked
+2026-10-30T07:06:33.932Z overlay false
+2026-10-30T07:06:33.933Z menu pick {"id":4,"found":true,"hadMenu":true}
+2026-10-30T07:06:33.935Z addTabsToGroup {"ids":[2],"groupId":"g1"}
+2026-10-30T07:06:37.283Z menu show {"anchor":{"x":10,"y":85},"handlers":1,"ui":{"x":0,"y":0,"width":1190,"height":89},"content":{"x":45,"y":61,"width":1190,"height":774},"overlay":false}
+2026-10-30T07:06:37.284Z overlay true
+2026-10-30T07:06:37.302Z ui: menu drawn 1 items at 10,82 230x45 viewport 1190x774 focus=true
+2026-10-30T07:06:38.816Z ui: mousedown btn=2 on pm-label at 124,108
+2026-10-30T07:06:38.817Z ui: bookmark item right-click
+2026-10-30T07:06:40.667Z ui: mousedown btn=0 on pm-label at 238,131
+2026-10-30T07:06:40.667Z ui: menu close bookmark tab
+2026-10-30T07:06:40.668Z overlay false
+2026-10-30T07:06:40.669Z createTab {"site":"127.0.0.1:8767","background":true,"group":null}

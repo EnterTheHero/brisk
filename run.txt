@@ -1,0 +1,20 @@
+exe D:\a\brisk\brisk\node_modules\electron\dist\electron.exe
+
+[left] started 44.9.1
+[left] scale 1.5 content {"x":45,"y":61,"width":1190,"height":774}
+[left] right-click target {"x":80,"y":80,"href":"http://127.0.0.1:8767/other"}
+[left] A context-menu event, linkURL = http://127.0.0.1:8767/other
+[left] A event fired true | ui height 774 | menu: Open Link in New Tab | Open Link in New Window | Open Link in Private Window | Copy Link Address | Inspect
+[left] A clicked item true | stayed on original tab true | tabs 1 -> 2 | menu still open false
+[left] B tab menu: New Tab to the Right | Add Tab to New Group | Reload | Duplicate | Mute Site | Close Tab | Close Other Tabs | Close Tabs to the Right
+[left] B editor open, input focused=true, doc focused=true | groups 1 | ui wc focused true | page wc focused false
+[left] B after typing, group names: "Work" | address bar: http://127.0.0.1:8767/
+[left] B after Enter, group names: "Work" | editor still open false
+[left] C tab menu: New Tab to the Right | Add Tab to New Group | Add Tab to Group | Reload | Duplicate | Mute Site | Close Tab | Close Other Tabs | Close Tabs to the Right
+[left] C after opening submenu, panels: 2 | menu: New Tab to the Right | Add Tab to New Group | Add Tab to Group | Reload | Duplicate | Mute Site | Close Tab | Close Other Tabs | Close Tabs to the Right | Work
+[left] C clicked group item true | tabs per group: Work=2
+[left] D dropdown: Local page
+[left] D after right-click: Local page | Open in New Tab | Open in New Window | Open in Private Window | Copy Link Address
+[left] D tabs 2 -> 3 | stayed true | menus left 0
+
+exit 0 null
